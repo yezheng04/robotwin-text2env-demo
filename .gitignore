@@ -1,0 +1,36 @@
+# Python / local runtime
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Large generated robotics data
+*.hdf5
+*.h5
+data/
+datasets/
+outputs/
+checkpoints/
+logs/
+wandb/
+install_logs/
+.cache/
+
+# RoboTwin / simulator heavy assets
+assets/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Keep small preview artifacts tracked unless they are regenerated elsewhere.
+!robotwin_text2env_smoke/
+!robotwin_text2env_smoke/**/
+!robotwin_text2env_smoke/**/*.mp4
+!robotwin_text2env_smoke/**/*.jpg
+!robotwin_text2env_smoke/**/*.json
+!robotwin_text2env_smoke/**/seed.txt
