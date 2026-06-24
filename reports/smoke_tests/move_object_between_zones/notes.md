@@ -11,8 +11,8 @@ The generated RoboTwin2 task loads, plans, executes, saves instructions, writes 
 ## Command
 
 ```bash
-cd /data/sdb/zhengye/RoboTwin
-source /data/sdb/zhengye/miniconda3/etc/profile.d/conda.sh
+cd ~/RoboTwin
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate RoboTwin
 timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | tee install_logs/smoke_collect_move_object_between_zones_step5_pass.log
 ```
@@ -20,14 +20,14 @@ timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | t
 ## Remote Artifacts
 
 ```text
-/data/sdb/zhengye/RoboTwin/envs/move_object_between_zones.py
-/data/sdb/zhengye/RoboTwin/description/task_instruction/move_object_between_zones.json
-/data/sdb/zhengye/RoboTwin/install_logs/smoke_collect_move_object_between_zones_step5_pass.log
-/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/data/episode0.hdf5
-/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/video/episode0.mp4
-/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/instructions/episode0.json
-/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/scene_info.json
-/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/seed.txt
+~/RoboTwin/envs/move_object_between_zones.py
+~/RoboTwin/description/task_instruction/move_object_between_zones.json
+~/RoboTwin/install_logs/smoke_collect_move_object_between_zones_step5_pass.log
+~/RoboTwin/data/move_object_between_zones/demo_smoke/data/episode0.hdf5
+~/RoboTwin/data/move_object_between_zones/demo_smoke/video/episode0.mp4
+~/RoboTwin/data/move_object_between_zones/demo_smoke/instructions/episode0.json
+~/RoboTwin/data/move_object_between_zones/demo_smoke/scene_info.json
+~/RoboTwin/data/move_object_between_zones/demo_smoke/seed.txt
 ```
 
 ## Local Preview Artifacts

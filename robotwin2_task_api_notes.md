@@ -1,7 +1,7 @@
 # RoboTwin2 Task API Notes
 
 更新时间：2026-06-24 Asia/Shanghai  
-远程 repo：`/data/sdb/zhengye/RoboTwin`  
+远程 repo：`~/RoboTwin`  
 目标：为 Text2Env / SceneSmith-lite 生成 RoboTwin2 tabletop task scaffold 提供接口说明。
 
 ---
@@ -11,8 +11,8 @@
 官方数据采集入口：
 
 ```bash
-cd /data/sdb/zhengye/RoboTwin
-source /data/sdb/zhengye/miniconda3/etc/profile.d/conda.sh
+cd ~/RoboTwin
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate RoboTwin
 bash collect_data.sh <task_name> <task_config> <gpu_id>
 ```
@@ -522,7 +522,7 @@ language:
 
 ## 11. 已检查的参考文件
 
-远程 `/data/sdb/zhengye/RoboTwin`：
+远程 `~/RoboTwin`：
 
 - `collect_data.sh`
 - `script/collect_data.py`

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROBOTWIN_ROOT="${1:-/data/sdb/zhengye/RoboTwin}"
+ROBOTWIN_ROOT="${1:-${HOME}/RoboTwin}"
 TASK_NAME="${2:-move_object_between_zones}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TASK_ROOT="${REPO_ROOT}/generated/robotwin_tasks/${TASK_NAME}"

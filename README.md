@@ -59,35 +59,65 @@ robotwin_text2env_smoke/move_object_between_zones/
   frame_end.jpg
 ```
 
-## Reproduce On The 5090 Machine
+## Reproduce On Your Machine
 
-The tested RoboTwin location was:
+First, make sure RoboTwin exists on your machine. The examples below assume the RoboTwin repository lives at:
 
 ```text
-/data/sdb/zhengye/RoboTwin
+~/RoboTwin
 ```
 
-The tested conda environment was:
+If you already have RoboTwin installed somewhere else, replace `~/RoboTwin` in the commands with your own RoboTwin path.
+
+If you do not have RoboTwin yet, clone and install RoboTwin following the official RoboTwin documentation:
+
+```bash
+git clone https://github.com/robotwin-Platform/robotwin ~/RoboTwin
+```
+
+Then install RoboTwin dependencies and assets according to:
+
+```text
+https://robotwin-platform.github.io/doc/usage/index.html
+```
+
+The tested conda environment name was:
 
 ```text
 RoboTwin
+```
+
+Confirm the repository layout before deploying:
+
+```bash
+test -d ~/RoboTwin/envs
+test -d ~/RoboTwin/description/task_instruction
 ```
 
 Deploy the generated task into RoboTwin:
 
 ```bash
 cd /path/to/this/repo
-bash scripts/deploy_to_robotwin.sh /data/sdb/zhengye/RoboTwin move_object_between_zones
+bash scripts/deploy_to_robotwin.sh ~/RoboTwin move_object_between_zones
+```
+
+This copies the generated files into:
+
+```text
+~/RoboTwin/envs/move_object_between_zones.py
+~/RoboTwin/description/task_instruction/move_object_between_zones.json
 ```
 
 Run the smoke/data dry run:
 
 ```bash
-cd /data/sdb/zhengye/RoboTwin
-source /data/sdb/zhengye/miniconda3/etc/profile.d/conda.sh
+cd ~/RoboTwin
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate RoboTwin
 timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | tee install_logs/smoke_collect_move_object_between_zones_step5_pass.log
 ```
+
+If your conda installation is not under `~/miniconda3`, replace the `source` path with your own conda profile path.
 
 Expected outputs:
 
@@ -113,7 +143,7 @@ python scripts/generate_robotwin_task.py generate examples/tabletop_tasks/move_o
 Then deploy again:
 
 ```bash
-bash scripts/deploy_to_robotwin.sh /data/sdb/zhengye/RoboTwin move_object_between_zones
+bash scripts/deploy_to_robotwin.sh ~/RoboTwin move_object_between_zones
 ```
 
 ## Smoke-Test Summary

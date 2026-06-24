@@ -378,8 +378,8 @@ generated/robotwin_tasks/move_object_between_zones/description/task_instruction/
 generated/robotwin_tasks/move_object_between_zones/manifest.json
 
 Remote deployed files:
-/data/sdb/zhengye/RoboTwin/envs/move_object_between_zones.py
-/data/sdb/zhengye/RoboTwin/description/task_instruction/move_object_between_zones.json
+~/RoboTwin/envs/move_object_between_zones.py
+~/RoboTwin/description/task_instruction/move_object_between_zones.json
 ```
 
 复现生成命令：
@@ -391,7 +391,7 @@ python scripts/generate_robotwin_task.py generate examples/tabletop_tasks/move_o
 下一步 smoke 命令：
 
 ```bash
-cd /data/sdb/zhengye/RoboTwin
+cd ~/RoboTwin
 conda activate RoboTwin
 bash collect_data.sh move_object_between_zones demo_smoke 0
 ```
@@ -674,9 +674,9 @@ Move the green block to the right target zone.
 
 ### Artifacts
 
-- Command log: `/data/sdb/zhengye/RoboTwin/install_logs/smoke_collect_move_object_between_zones_step5_pass.log`
-- Remote HDF5: `/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/data/episode0.hdf5`
-- Remote video: `/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/video/episode0.mp4`
+- Command log: `~/RoboTwin/install_logs/smoke_collect_move_object_between_zones_step5_pass.log`
+- Remote HDF5: `~/RoboTwin/data/move_object_between_zones/demo_smoke/data/episode0.hdf5`
+- Remote video: `~/RoboTwin/data/move_object_between_zones/demo_smoke/video/episode0.mp4`
 - Local preview folder: `robotwin_text2env_smoke/move_object_between_zones/`
 - Smoke report: `reports/smoke_tests/move_object_between_zones/notes.md`
 
@@ -694,13 +694,13 @@ zhengye = /data/sdb/zhengye
 
 RoboTwin2.0 当前环境：
 
-- Repo: `/data/sdb/zhengye/RoboTwin`
+- Repo: `~/RoboTwin`
 - Conda env: `RoboTwin`
 - Python: 3.10.20
 - PyTorch: `2.7.0+cu128`
 - CUDA toolkit for JIT: conda env 内 `nvcc 12.8.93`
-- Assets: `/data/sdb/zhengye/RoboTwin/assets`，约 16G
-- VS Code Remote CPU hygiene: 已在 `/data/sdb/zhengye/RoboTwin/.vscode/settings.json` 排除 `.git`、`assets`、`data`、`outputs`、`checkpoints`、`logs`、`install_logs`、`wandb` 等大目录
+- Assets: `~/RoboTwin/assets`，约 16G
+- VS Code Remote CPU hygiene: 已在 `~/RoboTwin/.vscode/settings.json` 排除 `.git`、`assets`、`data`、`outputs`、`checkpoints`、`logs`、`install_logs`、`wandb` 等大目录
 
 为什么没有完全照官方 pinned torch：
 
@@ -711,18 +711,18 @@ RoboTwin2.0 当前环境：
 已完成 smoke test：
 
 ```bash
-cd /data/sdb/zhengye/RoboTwin
-source /data/sdb/zhengye/miniconda3/etc/profile.d/conda.sh
+cd ~/RoboTwin
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate RoboTwin
 bash collect_data.sh beat_block_hammer demo_smoke 0
 ```
 
 输出：
 
-- Dataset: `/data/sdb/zhengye/RoboTwin/data/beat_block_hammer/demo_smoke/data/episode0.hdf5`
-- Trajectory: `/data/sdb/zhengye/RoboTwin/data/beat_block_hammer/demo_smoke/_traj_data/episode0.pkl`
-- Instruction: `/data/sdb/zhengye/RoboTwin/data/beat_block_hammer/demo_smoke/instructions/episode0.json`
-- Video: `/data/sdb/zhengye/RoboTwin/data/beat_block_hammer/demo_smoke/video/episode0.mp4`
+- Dataset: `~/RoboTwin/data/beat_block_hammer/demo_smoke/data/episode0.hdf5`
+- Trajectory: `~/RoboTwin/data/beat_block_hammer/demo_smoke/_traj_data/episode0.pkl`
+- Instruction: `~/RoboTwin/data/beat_block_hammer/demo_smoke/instructions/episode0.json`
+- Video: `~/RoboTwin/data/beat_block_hammer/demo_smoke/video/episode0.mp4`
 - Smoke size: about 231M
 - Video: 1657 frames, 320x240, 30 FPS
 
@@ -736,17 +736,17 @@ bash collect_data.sh beat_block_hammer demo_smoke 0
 已完成 Text2Env Task B smoke / dry run：
 
 ```bash
-cd /data/sdb/zhengye/RoboTwin
-source /data/sdb/zhengye/miniconda3/etc/profile.d/conda.sh
+cd ~/RoboTwin
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate RoboTwin
 timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | tee install_logs/smoke_collect_move_object_between_zones_step5_pass.log
 ```
 
 输出：
 
-- Dataset: `/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/data/episode0.hdf5`，约 348M
-- Instruction: `/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/instructions/episode0.json`
-- Video: `/data/sdb/zhengye/RoboTwin/data/move_object_between_zones/demo_smoke/video/episode0.mp4`
+- Dataset: `~/RoboTwin/data/move_object_between_zones/demo_smoke/data/episode0.hdf5`，约 348M
+- Instruction: `~/RoboTwin/data/move_object_between_zones/demo_smoke/instructions/episode0.json`
+- Video: `~/RoboTwin/data/move_object_between_zones/demo_smoke/video/episode0.mp4`
 - Local preview: `robotwin_text2env_smoke/move_object_between_zones/`
 - Report: `reports/smoke_tests/move_object_between_zones/notes.md`
 - HDF5 summary: `joint_action/vector (2293, 14)`, `observation/head_camera/rgb (2293,)`, `endpose/left_endpose (2293, 7)`
