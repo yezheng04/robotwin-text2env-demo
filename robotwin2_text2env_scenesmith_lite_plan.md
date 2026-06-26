@@ -761,7 +761,346 @@ timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | t
 
 ---
 
-## 11. 当前 TODO
+## 11. 后续方向：Generated Assets -> RoboTwin asset adapter
+
+博士后续可能会安排其他人负责自然语言到 3D asset 的生成。我的重点不需要放在训练 3D 生成模型本身，而是要定义清楚：**生成出来的资产应该以什么格式交付，怎样放进 RoboTwin，并怎样验证它能被 RoboTwin 稳定加载、碰撞、抓取和用于 task program。**
+
+### 11.1 目标边界
+
+当前 Text2Env demo 使用 RoboTwin 现有资产或简单几何体。后续要支持自然语言中出现 RoboTwin asset library 没有的物体，例如 `peach`、`toy duck`、`custom mug`、`small wooden tray`。
+
+新的目标链路：
+
+```text
+Natural language
+-> Text2Env scene/task spec
+-> asset requirement spec
+-> generated 3D mesh from asset-generation owner
+-> RoboTwin asset adapter
+-> ~/RoboTwin/assets/objects/<asset_id>/
+-> RoboTwin task program uses create_actor(...)
+-> load/stability/task smoke test
+```
+
+我的责任范围：
+
+- 定义 RoboTwin 可用资产包格式。
+- 把别人生成的 mesh/metadata 转成 RoboTwin asset folder。
+- 写 asset install / validate / smoke 脚本。
+- 在 Text2Env schema 和 task generator 中支持 `generated_asset` 引用。
+- 跑 RoboTwin load test、stability test、task smoke test。
+
+暂不负责：
+
+- 训练 3D 生成模型。
+- 从零生成 articulated drawer/cabinet 的 joint hierarchy。
+- 解决任意复杂物体的专家策略。
+
+### 11.2 RoboTwin 普通刚体资产接口
+
+RoboTwin 普通刚体资产通过 `create_actor(...)` 加载。接口位置：
+
+```text
+~/RoboTwin/envs/utils/create_actor.py
+/data/sdb/zhengye/RoboTwin/envs/utils/create_actor.py
+```
+
+典型 task program 调用：
+
+```python
+self.peach = create_actor(
+    scene=self,
+    pose=rand_pose(...),
+    modelname="generated_peach",
+    convex=True,
+    is_static=False,
+    model_id=0,
+)
+```
+
+RoboTwin 会读取：
+
+```text
+~/RoboTwin/assets/objects/generated_peach/
+/data/sdb/zhengye/RoboTwin/assets/objects/generated_peach/
+```
+
+推荐资产目录结构：
+
+```text
+~/RoboTwin/assets/objects/<asset_id>/
+  visual/
+    base0.glb
+  collision/
+    base0.glb
+  model_data0.json
+  points_info.json
+  asset_manifest.json
+  preview.png
+```
+
+最小可加载结构：
+
+```text
+~/RoboTwin/assets/objects/<asset_id>/
+  visual/base0.glb
+  collision/base0.glb
+  model_data0.json
+```
+
+如果没有 `visual/` 或 `collision/` 子目录，RoboTwin 也会尝试读取根目录下的 `base0.glb`，但不推荐这样做。后续统一要求 visual mesh 和 collision mesh 分开。
+
+### 11.3 `model_data0.json` 必须包含什么
+
+`model_data0.json` 是 RoboTwin asset 能否用于 skill / grasp / place 的关键 metadata。最小字段建议：
+
+```json
+{
+  "center": [0.0, 0.0, 0.0],
+  "extents": [1.0, 1.0, 1.0],
+  "scale": [0.08, 0.08, 0.08],
+  "transform_matrix": [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "target_pose": [],
+  "contact_points_pose": [],
+  "functional_matrix": [],
+  "orientation_point": [],
+  "stable": true
+}
+```
+
+字段含义：
+
+- `scale`: RoboTwin 加载 mesh 时使用的缩放比例，必须让物体落在 tabletop 合理尺度，例如 peach 直径约 `0.07m`。
+- `center` / `extents`: asset 原始几何的中心和包围盒尺寸，用于 sanity check。
+- `transform_matrix`: mesh 坐标系到 RoboTwin 约定坐标系的修正矩阵。
+- `contact_points_pose`: 可抓取点。`grasp_actor(...)` 会用这些点来找抓取姿态。
+- `functional_matrix`: 功能点。例如容器内部、杯口中心、按钮位置、放置目标点。
+- `target_pose`: 一些 task 会用 target point。
+- `stable`: 标记这个 asset 是否经过稳定性检查。
+
+如果资产只是被动 distractor，`contact_points_pose` 和 `functional_matrix` 可以先为空；如果资产要被抓取或作为放置目标，就必须补这些点。
+
+### 11.4 `points_info.json` 建议格式
+
+`points_info.json` 给 agent / human 解释点位语义。推荐格式：
+
+```json
+{
+  "contact_points": [
+    {
+      "id": [0, 1],
+      "description": "Opposite side grasp points on the peach.",
+      "usage": "Used for side grasping the peach."
+    }
+  ],
+  "functional_points": [
+    {
+      "id": 0,
+      "description": "Top center of the peach.",
+      "usage": "Used for checking object pose or stacking target."
+    }
+  ]
+}
+```
+
+### 11.5 资产生成方应该交付什么
+
+资产生成负责人可以使用 TRELLIS、Hunyuan3D、Meshy、Tripo 或其他 text/image-to-3D 方法。但交付给本项目时，不要只给 prompt，至少要给：
+
+```text
+incoming_assets/<asset_id>/
+  source_prompt.txt
+  visual.glb 或 visual.obj
+  preview.png
+  optional_metadata.json
+```
+
+如果他们能额外交付 collision mesh，更好：
+
+```text
+incoming_assets/<asset_id>/
+  collision.glb
+```
+
+如果他们不能生成 collision mesh，我这边的 adapter 需要自动做：
+
+- mesh cleanup / normalize origin。
+- scale normalization。
+- collision mesh simplification 或 convex decomposition。
+- stable pose 检查。
+- contact point / functional point 初始估计。
+
+### 11.6 我们项目中的推荐 staging 路径
+
+不要把大 GLB/HDF5 直接提交到 GitHub。建议本项目只提交 schema、脚本和小 metadata，大资产放在 5090 或单独 artifact storage。
+
+本项目 repo 中的 staging 路径：
+
+```text
+/data/sdb/zhengye/robotwin-text2env-demo/generated/assets/<asset_id>/
+```
+
+建议内容：
+
+```text
+generated/assets/<asset_id>/
+  asset_manifest.json
+  model_data0.json
+  points_info.json
+  README.md
+```
+
+大文件只保存在 5090：
+
+```text
+/data/sdb/zhengye/generated_assets/<asset_id>/
+  visual/base0.glb
+  collision/base0.glb
+  preview.png
+```
+
+安装到 RoboTwin 的最终路径：
+
+```text
+~/RoboTwin/assets/objects/<asset_id>/
+/data/sdb/zhengye/RoboTwin/assets/objects/<asset_id>/
+```
+
+### 11.7 Adapter / installer 需要做的事情
+
+后续新增脚本建议：
+
+```text
+scripts/prepare_generated_asset.py
+scripts/install_generated_asset_to_robotwin.sh
+scripts/validate_robotwin_asset.py
+```
+
+目标命令形式：
+
+```bash
+python scripts/prepare_generated_asset.py \
+  --asset-id generated_peach \
+  --input /data/sdb/zhengye/generated_assets/generated_peach/source.glb \
+  --category fruit \
+  --size-m 0.075 0.075 0.065 \
+  --mass-kg 0.12 \
+  --out /data/sdb/zhengye/generated_assets/generated_peach/robotwin_asset
+
+bash scripts/install_generated_asset_to_robotwin.sh \
+  /data/sdb/zhengye/generated_assets/generated_peach/robotwin_asset \
+  ~/RoboTwin
+
+python scripts/validate_robotwin_asset.py \
+  --robotwin-root ~/RoboTwin \
+  --asset-id generated_peach \
+  --model-id 0
+```
+
+安装后应生成：
+
+```text
+~/RoboTwin/assets/objects/generated_peach/visual/base0.glb
+~/RoboTwin/assets/objects/generated_peach/collision/base0.glb
+~/RoboTwin/assets/objects/generated_peach/model_data0.json
+~/RoboTwin/assets/objects/generated_peach/points_info.json
+~/RoboTwin/assets/objects/generated_peach/asset_manifest.json
+```
+
+### 11.8 Text2Env schema 后续扩展
+
+当前 Text2Env object 使用 `kind: "asset"` 时默认是 RoboTwin 已有资产。后续应增加：
+
+```json
+{
+  "id": "peach",
+  "role": "manipulated",
+  "kind": "generated_asset",
+  "category": "fruit",
+  "asset": {
+    "asset_id": "generated_peach",
+    "modelname": "generated_peach",
+    "model_id": 0,
+    "convex": true,
+    "required_files": [
+      "visual/base0.glb",
+      "collision/base0.glb",
+      "model_data0.json"
+    ]
+  },
+  "physical": {
+    "mass_kg": 0.12,
+    "graspable": true,
+    "movable": true,
+    "is_static": false
+  }
+}
+```
+
+task generator 最终仍然生成：
+
+```python
+self.peach = create_actor(
+    scene=self,
+    pose=...,
+    modelname="generated_peach",
+    convex=True,
+    is_static=False,
+    model_id=0,
+)
+```
+
+### 11.9 Articulated asset 暂时怎么处理
+
+drawer / cabinet / scissors / faucet 这类 articulated asset 不能只靠普通 text-to-3D mesh。RoboTwin articulated object 需要：
+
+```text
+~/RoboTwin/assets/objects/<asset_id>/
+  mobility.urdf
+  model_data.json
+  optional mesh files
+```
+
+加载接口：
+
+```python
+create_urdf_obj(
+    scene=self,
+    pose=...,
+    modelname="<asset_id>",
+    fix_root_link=True,
+)
+```
+
+短期策略：
+
+- 不要求资产生成方从零生成 articulated URDF。
+- drawer/cabinet 先使用 RoboTwin/PartNet/SAPIEN 已有 articulated 模板。
+- 生成模型只负责外观 mesh 或 texture，不能作为 joint hierarchy 的权威来源。
+- Task A 的 drawer 类任务继续标记为 harder task / articulated blocker。
+
+### 11.10 验收标准
+
+一个 generated asset 被认为可以接入 RoboTwin，至少要满足：
+
+- [ ] 目录已安装到 `~/RoboTwin/assets/objects/<asset_id>/`。
+- [ ] `create_actor(...)` 能加载，不返回 `None`。
+- [ ] table 上 reset 后 2-3 秒不爆炸、不飞走、不穿透。
+- [ ] 尺度合理，例如水果/杯子/小物体在 `5cm-15cm` 量级。
+- [ ] collision mesh 和 visual mesh 大致对齐。
+- [ ] 如果是 manipulated object，至少有可用 `contact_points_pose`。
+- [ ] 如果是 target/container/support object，至少有可用 `functional_matrix`。
+- [ ] 能跑一个最小 spawn smoke。
+- [ ] 能被一个简单 Text2Env task 引用并进入 data collection dry run。
+
+---
+
+## 12. 当前 TODO
 
 ### High priority
 
@@ -783,6 +1122,9 @@ timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | t
 ### Lower priority
 
 - [ ] 尝试 Task A: cup into drawer。
+- [ ] 定义 `generated_asset` schema 扩展。
+- [ ] 写 generated asset -> RoboTwin asset package 的 adapter / installer 设计。
+- [ ] 写最小 `generated_peach` 或 mock asset 接入测试。
 - [x] 对接 data collection dry run。
 - [ ] 写 Pi / OpenVLA-OFT hook note。
 - [x] 整理 demo report。
@@ -790,7 +1132,7 @@ timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | t
 
 ---
 
-## 12. 风险和判断
+## 13. 风险和判断
 
 ### Risk 1: RoboTwin2 API 复杂，自动生成 task code 容易错
 
@@ -831,9 +1173,26 @@ timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | t
 - Critic 必须检查 success condition 是否能从 simulator state 判断。
 - 所有 success 都先限制为 spatial relation / object state / region membership。
 
+### Risk 6: Text-to-3D asset 长得像，但不能物理仿真
+
+处理方式：
+
+- 不把 GLB 直接当成 RoboTwin asset。
+- 必须经过 asset adapter，生成 visual mesh、collision mesh、scale、stable pose、metadata。
+- 每个 generated asset 先跑 isolated load/stability smoke，再进入 task smoke。
+- 如果 contact/functional points 缺失，只允许作为 passive distractor，不允许作为 manipulated object 或 target object。
+
+### Risk 7: 生成 articulated asset 难以自动接入
+
+处理方式：
+
+- drawer/cabinet 暂时不要求 text-to-3D 直接生成 URDF。
+- articulated 物体使用模板或已有 asset，生成模型只做外观替换。
+- Text2Env critic 必须把 `drawer`、`cabinet`、`door`、`scissors` 这类任务标记为 `requires_articulation`。
+
 ---
 
-## 13. Dashboard 更新建议
+## 14. Dashboard 更新建议
 
 如果要更新 dashboard，不要在 dashboard comment 中写任何 token。
 
@@ -850,7 +1209,7 @@ timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | t
 
 ---
 
-## 14. References
+## 15. References
 
 - RoboTwin2 project page: https://robotwin-platform.github.io/
 - RoboTwin2 official repo: https://github.com/robotwin-Platform/robotwin
@@ -859,3 +1218,7 @@ timeout 900 bash collect_data.sh move_object_between_zones demo_smoke 0 2>&1 | t
 - SceneSmith project page: https://scenesmith.github.io/
 - SceneSmith repo: https://github.com/nepfaff/scenesmith
 - SceneSmith arXiv: https://arxiv.org/abs/2602.09153
+- TRELLIS repo: https://github.com/microsoft/TRELLIS
+- Hunyuan3D 2.1 repo: https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1
+- Meshy Text to 3D API: https://docs.meshy.ai/en/api/text-to-3d
+- Tripo API docs: https://platform.tripo3d.ai/
