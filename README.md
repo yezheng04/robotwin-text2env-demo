@@ -160,6 +160,23 @@ The passing smoke run generated:
 
 See `reports/smoke_tests/move_object_between_zones/notes.md` for details.
 
+## Policy Train/Eval Hook
+
+The minimal Step 7 hook uses RoboTwin2's built-in ACT policy. It verifies:
+
+- two expert episodes can be collected for the generated task,
+- RoboTwin HDF5 data can be converted by `policy/ACT/process_data.py`,
+- a one-epoch ACT smoke train can write checkpoints,
+- `script/eval_policy.py` can load the checkpoint and start a RoboTwin rollout.
+
+Run from this repository after deploying the task:
+
+```bash
+bash scripts/run_policy_hook.sh ~/RoboTwin move_object_between_zones demo_policy_hook 0 2
+```
+
+The full notes and exact commands are in `docs/policy_hook_note.md`.
+
 ## Known Limitations
 
 - Current v0 uses RoboTwin existing assets or simple geometry. It does not generate missing mesh assets such as a novel `peach`.

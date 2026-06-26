@@ -164,7 +164,7 @@ SceneSmith 是一个从自然语言生成 simulation-ready indoor scenes 的 age
 - [ ] 写 RoboTwin2 task generation / scaffold route：env JSON -> task code。
 - [x] 跑 simulator smoke test。
 - [x] 跑 data-collection dry run。
-- [ ] 写 train/eval hook 或 blocker note。
+- [x] 写 train/eval hook 或 blocker note。
 - [x] 保存命令、日志、截图/视频或失败证据。
 
 ### 4.3 暂不追求
@@ -455,9 +455,9 @@ reports/smoke_tests/<task_name>/
 
 产出：
 
-- [ ] `docs/policy_hook_note.md`
-- [ ] 一条 train/eval command draft。
-- [ ] blocker list。
+- [x] `docs/policy_hook_note.md`
+- [x] 一条 train/eval command draft。
+- [x] blocker list。
 
 ---
 
@@ -475,7 +475,7 @@ MVP 不要求漂亮，但必须可复现。
 - [x] `scripts/generate_text2env.py`
 - [x] `scripts/generate_robotwin_task.py`
 - [x] `reports/smoke_tests/move_object_between_zones/notes.md`
-- [ ] `docs/policy_hook_note.md`
+- [x] `docs/policy_hook_note.md`
 
 ### 必交能力
 
@@ -485,6 +485,7 @@ MVP 不要求漂亮，但必须可复现。
 - [x] 至少一个 success verifier 可调用。
 - [x] 至少一个 data collection dry run 尝试完成或有明确 blocker。
 - [x] 有清楚的复现命令和日志路径。
+- [x] 至少一个 policy train/eval hook 能启动或有明确 blocker。
 
 ### Demo 通过标准
 
@@ -653,6 +654,7 @@ Move the green block to the right target zone.
 - [x] Completed data-collection dry run for one episode.
 - [x] Pulled local preview artifacts: MP4, instruction JSON, scene info, seed, and three sampled frames.
 - [x] Added smoke report: `reports/smoke_tests/move_object_between_zones/notes.md`.
+- [x] Completed Step 7 ACT policy hook: two-episode data collection, ACT preprocessing, one-epoch smoke train, checkpoint load, and eval rollout startup.
 
 ### Findings
 
@@ -660,16 +662,19 @@ Move the green block to the right target zone.
 - After changing the bowl qpos to `[0.5, 0.5, 0.5, 0.5]`, the next failure was placement planning at step 3.
 - The passing v0 uses a center-near target zone, a farther bowl distractor, and no generated keep-out area for region marker boxes.
 - HDF5 output contains `endpose`, `joint_action`, `observation`, and `pointcloud`, with 2293 frames.
+- ACT requires at least two episodes for its default train/validation split; a single `demo_smoke` episode gives an empty train split.
+- ACT eval starts, loads `policy_last.ckpt`, and enters rollout, but `script/eval_policy.py` hardcodes `test_num = 100`, so the smoke eval was stopped with `timeout 180`.
 
 ### Blockers
 
 - None for Task B smoke/data dry run.
 - Log noise remains: many `svulkan2 OIDN Error: invalid handle` messages during video export, but output files are valid.
+- For a short policy eval, add a `test_num` argument to `script/eval_policy.py` or create a small eval wrapper.
 
 ### Next
 
-- [ ] Write `docs/policy_hook_note.md`.
-- [ ] Decide whether Step 6 should be considered fully done for MVP or extended with a second task.
+- [x] Write `docs/policy_hook_note.md`.
+- [x] Decide whether Step 6 should be considered fully done for MVP or extended with a second task.
 - [ ] Try Task A or downgrade it to open-box/container if drawer articulation takes too long.
 
 ### Artifacts
@@ -679,6 +684,9 @@ Move the green block to the right target zone.
 - Remote video: `~/RoboTwin/data/move_object_between_zones/demo_smoke/video/episode0.mp4`
 - Local preview folder: `robotwin_text2env_smoke/move_object_between_zones/`
 - Smoke report: `reports/smoke_tests/move_object_between_zones/notes.md`
+- Policy hook report: `docs/policy_hook_note.md`
+- Policy hook script: `scripts/run_policy_hook.sh`
+- Remote ACT checkpoint: `~/RoboTwin/policy/ACT/act_ckpt/act-move_object_between_zones/demo_policy_hook-2-smoke/`
 
 ---
 
