@@ -18,6 +18,7 @@ logs/
 wandb/
 install_logs/
 .cache/
+runs/
 
 # RoboTwin / simulator heavy assets
 assets/
@@ -34,3 +35,7 @@ Thumbs.db
 !robotwin_text2env_smoke/**/*.jpg
 !robotwin_text2env_smoke/**/*.json
 !robotwin_text2env_smoke/**/seed.txt
+
+# Local agent generations are reproducible run outputs, not canonical examples.
+examples/tabletop_tasks/generated_*.json
+examples/tabletop_tasks/generated_*.validation.json

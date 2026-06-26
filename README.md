@@ -146,6 +146,22 @@ Then deploy again:
 bash scripts/deploy_to_robotwin.sh ~/RoboTwin move_object_between_zones
 ```
 
+## Run The Natural-Language Agent Flow
+
+To reproduce the Designer -> Critic -> Orchestrator flow with an open-source model, serve an instruct model through an OpenAI-compatible endpoint such as vLLM, Ollama, or LM Studio, then run:
+
+```bash
+python scripts/run_text2env_agents.py \
+  --backend openai-compatible \
+  --api-base http://localhost:8000/v1 \
+  --model Qwen/Qwen2.5-14B-Instruct \
+  --instruction "Move the green block from the left zone to the right zone without moving the blue bowl." \
+  --run-dir runs/text2env_agents/move_object_between_zones_qwen14b \
+  --out examples/tabletop_tasks/generated_from_qwen.json
+```
+
+For setup details, see `docs/open_source_agent_reproduction.md`.
+
 ## Smoke-Test Summary
 
 The passing smoke run generated:
