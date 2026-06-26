@@ -40,6 +40,9 @@ scripts/
   generate_text2env.py
   generate_robotwin_task.py
   deploy_to_robotwin.sh
+  reproduce_text2env_e2e.py
+  run_text2env_agents.py
+  run_policy_hook.sh
 
 generated/robotwin_tasks/move_object_between_zones/
   envs/move_object_between_zones.py
@@ -161,6 +164,47 @@ python scripts/run_text2env_agents.py \
 ```
 
 For setup details, see `docs/open_source_agent_reproduction.md`.
+
+## Run The End-To-End Reproduction Flow
+
+The one-command runner starts from natural language, runs Designer -> Critic -> Orchestrator, validates Text2Env JSON, generates RoboTwin2 task files, and can optionally deploy and run RoboTwin smoke collection.
+
+First test the local pipeline without an LLM:
+
+```bash
+python scripts/reproduce_text2env_e2e.py \
+  --backend mock \
+  --instruction "Move the green block from the left zone to the right zone without moving the blue bowl." \
+  --run-dir runs/e2e/mock_move_object_between_zones
+```
+
+Then run with an OpenAI-compatible model server:
+
+```bash
+python scripts/reproduce_text2env_e2e.py \
+  --backend openai-compatible \
+  --api-base http://localhost:8000/v1 \
+  --model Qwen/Qwen2.5-14B-Instruct \
+  --instruction "Move the green block from the left zone to the right zone without moving the blue bowl." \
+  --run-dir runs/e2e/qwen_move_object_between_zones
+```
+
+To deploy into RoboTwin and collect a simulator smoke episode:
+
+```bash
+python scripts/reproduce_text2env_e2e.py \
+  --backend openai-compatible \
+  --api-base http://localhost:8000/v1 \
+  --model Qwen/Qwen2.5-14B-Instruct \
+  --instruction "Move the green block from the left zone to the right zone without moving the blue bowl." \
+  --run-dir runs/e2e/qwen_smoke_move_object_between_zones \
+  --robotwin-root ~/RoboTwin \
+  --deploy \
+  --run-smoke \
+  --gpu-id 0
+```
+
+For the complete pass/fail contract and optional policy hook command, see `docs/end_to_end_reproduction.md`.
 
 ## Smoke-Test Summary
 
