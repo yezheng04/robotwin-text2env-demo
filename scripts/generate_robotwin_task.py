@@ -108,6 +108,7 @@ def generate_load_actors(data: Dict[str, Any]) -> List[str]:
             lines.append(f"            pose={pose},")
             lines.append(f'            modelname="{asset["modelname"]}",')
             lines.append(f"            convex={py(bool(asset.get('convex', True)))},")
+            lines.append(f"            is_static={py(bool(physical.get('is_static', False)))},")
             lines.append(f"            model_id={py(asset.get('model_id', 0))},")
             lines.append("        )")
         elif kind == "urdf":
