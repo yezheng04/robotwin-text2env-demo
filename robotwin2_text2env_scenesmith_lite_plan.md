@@ -396,9 +396,10 @@ policy = external pick-and-place policy
 - [x] 输出 final static placement：`placements/apple_plate_table/final_placement.json`。
 - [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
 - [ ] 写 PlacementSpec validator。
-- [ ] 写 RoboTwin placement loader helper。
-- [ ] 在 RoboTwin 中加载该 scene。
-- [ ] 跑 load / stability / camera smoke。
+- [x] 写 RoboTwin placement loader / smoke runner：`scripts/run_robotwin_placement_smoke.py`。
+- [x] 在 RoboTwin 中加载该 scene。
+- [x] 跑 load / stability / camera smoke。
+- [x] 保存 smoke result、图片、视频和人工 visual review。
 - [ ] 记录该 scene 可供下游 task 使用的方式。
 
 ### 8.2 暂不做
@@ -420,7 +421,8 @@ policy = external pick-and-place policy
 6. Orchestrator prompt, final static placement, and validation plan
 7. RoboTwin placement loader helper
 8. RoboTwin load/stability smoke result
-9. explanation of how a downstream RoboTwin task can consume the scene
+9. render image/video and visual review result
+10. explanation of how a downstream RoboTwin task can consume the scene
 ```
 
 ---
@@ -555,19 +557,27 @@ stage = final_static_for_smoke
 
 ### Step 6: RoboTwin placement loader
 
-实现一个 helper，不要生成新 task：
+已实现一个 helper / smoke runner，不生成新 task program：
 
 ```text
-scripts/load_tabletop_placement.py
+scripts/run_robotwin_placement_smoke.py
 ```
 
-或者先在 RoboTwin 内写：
+运行命令：
 
 ```text
-envs/utils/load_tabletop_placement.py
+python scripts/run_robotwin_placement_smoke.py \
+  --robotwin-root /data/sdb/zhengye/RoboTwin \
+  --placement placements/apple_plate_table/final_placement.json \
+  --out-dir runs/apple_plate_table_smoke \
+  --task-config demo_smoke \
+  --seed 0 \
+  --settle-steps 240 \
+  --video-frames 60 \
+  --fps 15
 ```
 
-目标是把 PlacementSpec 里的物体实例化到 RoboTwin scene。
+目标是把 PlacementSpec 里的物体实例化到 RoboTwin scene，并保存图片、视频和 pose log。
 
 ### Step 7: validation / smoke
 
@@ -586,6 +596,25 @@ RoboTwin validation：
 - objects stable。
 - video/camera can see objects。
 - simple downstream policy/task can reference scene objects。
+
+本次 smoke 已完成：
+
+```text
+placements/apple_plate_table/smoke_result.json
+placements/apple_plate_table/visual_review.json
+previews/apple_plate_table/head_camera.png
+previews/apple_plate_table/observer_camera.png
+previews/apple_plate_table/observer_camera.mp4
+```
+
+结论：
+
+```text
+robotwin_load = pass
+settling_stability = pass
+render_evidence = pass
+human_visual_review = pass
+```
 
 ---
 
@@ -645,9 +674,9 @@ policy/data/eval third
 
 ### Medium priority
 
-- [ ] 写 RoboTwin placement loader helper。
-- [ ] 跑 apple/plate scene load smoke。
-- [ ] 保存 validation report 和视频。
+- [x] 写 RoboTwin placement loader / smoke runner：`scripts/run_robotwin_placement_smoke.py`。
+- [x] 跑 apple/plate scene load smoke。
+- [x] 保存 validation report、图片和视频。
 - [ ] 写下游 task 消费 scene 的接口说明。
 
 ### Lower priority

@@ -101,6 +101,10 @@ First deliverables:
 - Orchestrator prompt: `prompts/orchestrator_prompt.md`.
 - Final static placement for smoke: `placements/apple_plate_table/final_placement.json`.
 - Validation plan: `placements/apple_plate_table/validation_plan.json`.
+- RoboTwin smoke runner: `scripts/run_robotwin_placement_smoke.py`.
+- Smoke result: `placements/apple_plate_table/smoke_result.json`.
+- Visual review: `placements/apple_plate_table/visual_review.json`.
+- Preview image/video: `previews/apple_plate_table/`.
 - `TabletopPlacementSpec` schema.
 - RoboTwin placement adapter.
 - Placement validation report.

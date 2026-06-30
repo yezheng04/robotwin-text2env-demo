@@ -83,7 +83,7 @@
       "pose": {
         "region": "plate_target_area",
         "xyz": [0.18, -0.04, 0.755],
-        "qpos": [1, 0, 0, 0],
+        "qpos": [0.5, 0.5, 0.5, 0.5],
         "z_policy": "snap_to_tabletop_on_load"
       },
       "physical": {
@@ -148,6 +148,7 @@
   "orchestrator_notes": [
     "This is the final static placement for the next smoke-test stage, not a simulator-validated placement.",
     "No Designer repair is requested before smoke because the Critic found no static fail or repair_required issue.",
+    "The plate qpos follows the RoboTwin 003_plate pose convention used by place_container_plate.",
     "The next stage must load this file in RoboTwin, snap objects to the table, save pose logs, and save render/video evidence."
   ]
 }
