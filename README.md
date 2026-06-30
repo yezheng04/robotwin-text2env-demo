@@ -96,8 +96,10 @@ First deliverables:
 - Asset catalog sample: `asset_catalogs/robotwin_tabletop_assets_sample.json`.
 - Designer prompt: `prompts/designer_prompt.md`.
 - Designer initial placement: `placements/apple_plate_table/designer_initial_placement.json`.
+- Critic prompt: `prompts/critic_prompt.md`.
+- Critic static review: `placements/apple_plate_table/critic_review.json`.
 - `TabletopPlacementSpec` schema.
-- Critic / Orchestrator prompts for placement.
+- Orchestrator prompt for placement.
 - RoboTwin placement adapter.
 - Placement validation report.
 - Smoke video showing the placed scene is physically usable.

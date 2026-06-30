@@ -390,7 +390,9 @@ policy = external pick-and-place policy
 - [x] 准备或指定 apple / plate assets：`035_apple`、`003_plate`。
 - [x] 写 Designer prompt：`prompts/designer_prompt.md`。
 - [x] 写 Designer 初始 PlacementSpec：`placements/apple_plate_table/designer_initial_placement.json`。
-- [ ] 写 Critic / Orchestrator prompts。
+- [x] 写 Critic prompt：`prompts/critic_prompt.md`。
+- [x] 写 Critic 静态 review：`placements/apple_plate_table/critic_review.json`。
+- [ ] 写 Orchestrator prompt。
 - [ ] 写 PlacementSpec validator。
 - [ ] 写 RoboTwin placement loader helper。
 - [ ] 在 RoboTwin 中加载该 scene。
@@ -412,9 +414,10 @@ policy = external pick-and-place policy
 2. asset catalog sample
 3. Designer prompt draft
 4. apple-and-plate Designer initial placement spec
-5. RoboTwin placement loader helper
-6. RoboTwin load/stability smoke result
-7. explanation of how a downstream RoboTwin task can consume the scene
+5. Critic prompt and static review
+6. RoboTwin placement loader helper
+7. RoboTwin load/stability smoke result
+8. explanation of how a downstream RoboTwin task can consume the scene
 ```
 
 ---
@@ -493,6 +496,21 @@ Designer prompt 应要求：
 - 给出下游 task hints。
 
 ### Step 4: 让 Critic 检查 PlacementSpec
+
+已完成两个输出：
+
+```text
+prompts/critic_prompt.md
+placements/apple_plate_table/critic_review.json
+```
+
+本次 Critic 静态 review 结论：
+
+```text
+verdict = accept_for_next_stage
+```
+
+含义是：语义、资产、model id、bounds、粗略 collision、稳定性 metadata 和下游可用性在静态层面通过；但 RoboTwin load、真实物理稳定性、camera/render 可见性仍需后续 smoke 验证。
 
 Critic prompt 应限制在：
 
@@ -605,7 +623,8 @@ policy/data/eval third
 - [x] 确认 RoboTwin 基础资产库中有 apple / plate：`035_apple`、`003_plate`。
 - [x] 写 Designer prompt：`prompts/designer_prompt.md`。
 - [x] 写 apple-and-plate Designer initial PlacementSpec：`placements/apple_plate_table/designer_initial_placement.json`。
-- [ ] 写 Critic prompt。
+- [x] 写 Critic prompt：`prompts/critic_prompt.md`。
+- [x] 写 apple-and-plate Critic static review：`placements/apple_plate_table/critic_review.json`。
 - [ ] 写 Orchestrator prompt。
 - [ ] 写 PlacementSpec validator。
 
