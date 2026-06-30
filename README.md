@@ -1,110 +1,84 @@
-# RoboTwin2 Text2Env Demo
+# RoboTwin Tabletop Background Scene Generator
 
-Minimal SceneSmith-lite pipeline for turning a natural-language tabletop task into a RoboTwin2 task.
+SceneSmith-style tabletop scene generation for RoboTwin.
 
-Smoke-tested task:
-
-```text
-Move the green block from the left zone to the right zone without moving the blue bowl.
-```
-
-## What This Repo Proves
-
-This demo shows an end-to-end path:
+This project is being refocused. The goal is no longer to generate a new RoboTwin task program from natural language. The new goal is:
 
 ```text
-natural language
--> Text2Env JSON
--> RoboTwin2 task program
--> RoboTwin smoke/data collection
--> optional ACT policy hook
+given an existing RoboTwin task
+-> generate a semantically meaningful tabletop background scene
+-> place assets around the task without breaking manipulation
+-> validate collision, stability, reachability, and task compatibility
 ```
 
-The passing RoboTwin task is `move_object_between_zones`.
+## What We Are Building
 
-## Key Files
+A lightweight SceneSmith-inspired agent loop for RoboTwin tabletop scenes:
 
 ```text
-examples/tabletop_tasks/move_object_between_zones.json
-generated/robotwin_tasks/move_object_between_zones/
-scripts/reproduce_text2env_e2e.py
-scripts/run_text2env_agents.py
-scripts/generate_robotwin_task.py
-reports/smoke_tests/move_object_between_zones/notes.md
-robotwin_text2env_smoke/move_object_between_zones/
+Natural-language scene request
+-> Designer agent proposes tabletop background layout
+-> Critic agent checks semantic fit and physical/task feasibility
+-> Orchestrator agent revises and finalizes a scene spec
+-> Scene adapter places assets in RoboTwin
+-> RoboTwin smoke/eval verifies the task still works
 ```
 
-RoboTwin itself is not vendored here. Install or clone RoboTwin separately, usually at:
+The assets are expected to come from a richer asset library. This repo focuses on selecting, grounding, placing, and validating those assets in RoboTwin.
+
+## Scope
+
+In scope:
+
+- Generate tabletop background/distractor scenes for existing RoboTwin tasks.
+- Retrieve assets from a provided asset library.
+- Produce a structured scene spec with asset ids, poses, keep-out zones, and constraints.
+- Insert background assets into RoboTwin without changing the core task logic.
+- Validate collision, stability, robot reachability, camera visibility, and task success.
+
+Out of scope for this repo:
+
+- Training a 3D asset generation model.
+- Generating a new RoboTwin task from scratch.
+- Creating articulated assets such as drawers from natural language.
+- Full room/house-scale SceneSmith reproduction.
+
+## Current Planning Document
+
+The active design is in:
+
+```text
+robotwin2_text2env_scenesmith_lite_plan.md
+```
+
+The previous Text2Env task-generation prototype has been removed from the main repo to avoid confusion.
+
+## RoboTwin Path Assumption
+
+Examples assume RoboTwin is installed at:
 
 ```text
 ~/RoboTwin
 ```
 
-## Quick Reproduce
-
-First check that RoboTwin exists:
-
-```bash
-test -d ~/RoboTwin/envs
-test -d ~/RoboTwin/description/task_instruction
-```
-
-Run the full lightweight pipeline with the mock agent:
-
-```bash
-python scripts/reproduce_text2env_e2e.py \
-  --backend mock \
-  --instruction "Move the green block from the left zone to the right zone without moving the blue bowl." \
-  --run-dir runs/e2e/mock_move_object_between_zones \
-  --robotwin-root ~/RoboTwin \
-  --deploy \
-  --run-smoke \
-  --gpu-id 0
-```
-
-Expected RoboTwin outputs:
+On the 5090 machine this points to:
 
 ```text
-~/RoboTwin/data/move_object_between_zones/demo_smoke/data/episode0.hdf5
-~/RoboTwin/data/move_object_between_zones/demo_smoke/video/episode0.mp4
-~/RoboTwin/data/move_object_between_zones/demo_smoke/instructions/episode0.json
-~/RoboTwin/data/move_object_between_zones/demo_smoke/scene_info.json
-~/RoboTwin/data/move_object_between_zones/demo_smoke/seed.txt
+/data/sdb/zhengye/RoboTwin
 ```
 
-The HDF5 file is not tracked because it is large.
+## Next MVP
 
-## Run With A Real LLM
+Use one existing RoboTwin task, for example `place_empty_cup` or `beat_block_hammer`, and generate 3-5 tabletop background variants such as:
 
-Serve an OpenAI-compatible model, for example Qwen with vLLM:
-
-```bash
-vllm serve Qwen/Qwen2.5-14B-Instruct --host 0.0.0.0 --port 8000
+```text
+a tidy breakfast tabletop with a plate, spoon, napkin, and fruit around the task area, without blocking the robot arms
 ```
 
-Then run:
+The first useful deliverables are:
 
-```bash
-python scripts/reproduce_text2env_e2e.py \
-  --backend openai-compatible \
-  --api-base http://localhost:8000/v1 \
-  --model Qwen/Qwen2.5-14B-Instruct \
-  --instruction "Move the green block from the left zone to the right zone without moving the blue bowl." \
-  --run-dir runs/e2e/qwen_move_object_between_zones
-```
-
-For GPU memory reasons, it is usually better to generate the JSON first, stop vLLM, then run RoboTwin smoke.
-
-## Useful Docs
-
-- Full E2E reproduction: `docs/end_to_end_reproduction.md`
-- Open-source agent reproduction: `docs/open_source_agent_reproduction.md`
-- Policy hook notes: `docs/policy_hook_note.md`
-- Smoke report: `reports/smoke_tests/move_object_between_zones/notes.md`
-- Project plan and future asset-adapter direction: `robotwin2_text2env_scenesmith_lite_plan.md`
-
-## Current Limitations
-
-- v0 uses RoboTwin existing assets or simple geometry; generated assets are planned but not implemented yet.
-- Task A, `Put the red cup into the drawer`, is still blocked by articulated/container asset handling.
-- Region grounding needs improvement: phrases such as `from the left zone` should become explicit initial-state constraints.
+- `SceneSpec` schema for tabletop background placement.
+- Asset catalog format for retrieval and grounding.
+- Designer / Critic / Orchestrator prompts.
+- RoboTwin scene adapter that injects background assets.
+- Smoke logs and videos showing the original task still runs with generated background scenes.
