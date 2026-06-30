@@ -8,15 +8,15 @@ Example:
 
 ```text
 Scene request:
-  a banana on the left side of the table and an apple on the right side
+  an apple and a plate on the table
 
 Placement output:
-  banana asset -> left tabletop region
-  apple asset -> right tabletop region
-  poses satisfy left/right semantics, table bounds, collision, and stability
+  apple asset -> reachable tabletop region
+  plate asset -> reachable tabletop region
+  poses satisfy object presence, table bounds, collision, and stability
 
 Possible downstream RoboTwin task:
-  pick the banana from the left side and move it to the right side
+  pick the apple and place it on the plate
 ```
 
 ## What We Are Building
@@ -81,13 +81,13 @@ On the 5090 machine this points to:
 Start with a simple placement prompt:
 
 ```text
-a banana on the left side of the table and an apple on the right side
+an apple and a plate on the table
 ```
 
 Then instantiate the placed scene in RoboTwin and verify that it can support a downstream task such as:
 
 ```text
-pick the banana from the left side and place it near the apple on the right side
+pick the apple and place it on the plate
 ```
 
 First deliverables:

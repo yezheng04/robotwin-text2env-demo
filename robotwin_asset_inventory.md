@@ -14,6 +14,8 @@ Purpose: a prompt-writing reference for the RoboTwin tabletop placement agent. U
 
 Important prompt note: the current RoboTwin library has `035_apple` but no direct top-level `banana` asset. There is a generic `103_fruit` asset, but a banana-specific prompt may need the future richer asset library.
 
+Current first MVP placement prompt: `an apple and a plate on the table`, using `035_apple` and `003_plate`.
+
 ## Good First Placement Prompt Ingredients
 
 - Fruit/food prompts: `035_apple`, `103_fruit`, `075_bread`, `054_baguette`, `006_hamburg`, `005_french-fries`, `071_can`, `068_boxdrink`, `101_milk-tea`.
