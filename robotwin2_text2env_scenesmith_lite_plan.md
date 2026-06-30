@@ -388,8 +388,9 @@ policy = external pick-and-place policy
 - [x] 定义 asset catalog entry format，并建立 MVP 小样例：`asset_catalogs/robotwin_tabletop_assets_sample.json`。
 - [x] 选一个简单 placement prompt：an apple and a plate on the table。
 - [x] 准备或指定 apple / plate assets：`035_apple`、`003_plate`。
-- [ ] 写 Designer / Critic / Orchestrator prompts。
-- [ ] 写一个人工 TabletopPlacementSpec reference。
+- [x] 写 Designer prompt：`prompts/designer_prompt.md`。
+- [x] 写 Designer 初始 PlacementSpec：`placements/apple_plate_table/designer_initial_placement.json`。
+- [ ] 写 Critic / Orchestrator prompts。
 - [ ] 写 PlacementSpec validator。
 - [ ] 写 RoboTwin placement loader helper。
 - [ ] 在 RoboTwin 中加载该 scene。
@@ -409,8 +410,8 @@ policy = external pick-and-place policy
 ```text
 1. TabletopPlacementSpec schema draft
 2. asset catalog sample
-3. Designer / Critic / Orchestrator prompt draft
-4. apple-and-plate placement spec
+3. Designer prompt draft
+4. apple-and-plate Designer initial placement spec
 5. RoboTwin placement loader helper
 6. RoboTwin load/stability smoke result
 7. explanation of how a downstream RoboTwin task can consume the scene
@@ -474,6 +475,13 @@ asset_catalogs/robotwin_tabletop_assets_sample.json
 ```
 
 ### Step 3: 让 Designer 生成初始 PlacementSpec
+
+已完成两个输出：
+
+```text
+prompts/designer_prompt.md
+placements/apple_plate_table/designer_initial_placement.json
+```
 
 Designer prompt 应要求：
 
@@ -595,8 +603,10 @@ policy/data/eval third
 - [x] 定义 asset catalog sample：`asset_catalogs/robotwin_tabletop_assets_sample.json`。
 - [x] 选定第一个 placement prompt：an apple and a plate on the table。
 - [x] 确认 RoboTwin 基础资产库中有 apple / plate：`035_apple`、`003_plate`。
-- [ ] 写 apple-and-plate reference PlacementSpec。
-- [ ] 写三个 agent prompts：Designer、Critic、Orchestrator。
+- [x] 写 Designer prompt：`prompts/designer_prompt.md`。
+- [x] 写 apple-and-plate Designer initial PlacementSpec：`placements/apple_plate_table/designer_initial_placement.json`。
+- [ ] 写 Critic prompt。
+- [ ] 写 Orchestrator prompt。
 - [ ] 写 PlacementSpec validator。
 
 ### Medium priority
