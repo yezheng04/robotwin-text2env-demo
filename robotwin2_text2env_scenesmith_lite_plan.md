@@ -392,7 +392,9 @@ policy = external pick-and-place policy
 - [x] 写 Designer 初始 PlacementSpec：`placements/apple_plate_table/designer_initial_placement.json`。
 - [x] 写 Critic prompt：`prompts/critic_prompt.md`。
 - [x] 写 Critic 静态 review：`placements/apple_plate_table/critic_review.json`。
-- [ ] 写 Orchestrator prompt。
+- [x] 写 Orchestrator prompt：`prompts/orchestrator_prompt.md`。
+- [x] 输出 final static placement：`placements/apple_plate_table/final_placement.json`。
+- [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
 - [ ] 写 PlacementSpec validator。
 - [ ] 写 RoboTwin placement loader helper。
 - [ ] 在 RoboTwin 中加载该 scene。
@@ -415,9 +417,10 @@ policy = external pick-and-place policy
 3. Designer prompt draft
 4. apple-and-plate Designer initial placement spec
 5. Critic prompt and static review
-6. RoboTwin placement loader helper
-7. RoboTwin load/stability smoke result
-8. explanation of how a downstream RoboTwin task can consume the scene
+6. Orchestrator prompt, final static placement, and validation plan
+7. RoboTwin placement loader helper
+8. RoboTwin load/stability smoke result
+9. explanation of how a downstream RoboTwin task can consume the scene
 ```
 
 ---
@@ -533,12 +536,22 @@ Critic 输出：
 
 ### Step 5: Orchestrator 输出 final placement
 
-Orchestrator 根据 Designer 和 Critic 输出：
+已完成三个输出：
 
 ```text
-final_placement_spec.json
-validation_plan.json
+prompts/orchestrator_prompt.md
+placements/apple_plate_table/final_placement.json
+placements/apple_plate_table/validation_plan.json
 ```
+
+本次 Orchestrator 决策：
+
+```text
+decision = accept_for_smoke
+stage = final_static_for_smoke
+```
+
+含义是：Designer 初稿通过了 Static Critic，Orchestrator 不要求 repair，直接整理成下一步 RoboTwin smoke 使用的 final static placement。但它还不是视觉/仿真验证后的 final scene；`exact_table_contact`、`render_visibility`、`simulator_stability` 仍然 pending。
 
 ### Step 6: RoboTwin placement loader
 
@@ -625,7 +638,9 @@ policy/data/eval third
 - [x] 写 apple-and-plate Designer initial PlacementSpec：`placements/apple_plate_table/designer_initial_placement.json`。
 - [x] 写 Critic prompt：`prompts/critic_prompt.md`。
 - [x] 写 apple-and-plate Critic static review：`placements/apple_plate_table/critic_review.json`。
-- [ ] 写 Orchestrator prompt。
+- [x] 写 Orchestrator prompt：`prompts/orchestrator_prompt.md`。
+- [x] 输出 final static placement：`placements/apple_plate_table/final_placement.json`。
+- [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
 - [ ] 写 PlacementSpec validator。
 
 ### Medium priority

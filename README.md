@@ -98,8 +98,10 @@ First deliverables:
 - Designer initial placement: `placements/apple_plate_table/designer_initial_placement.json`.
 - Critic prompt: `prompts/critic_prompt.md`.
 - Critic static review: `placements/apple_plate_table/critic_review.json`.
+- Orchestrator prompt: `prompts/orchestrator_prompt.md`.
+- Final static placement for smoke: `placements/apple_plate_table/final_placement.json`.
+- Validation plan: `placements/apple_plate_table/validation_plan.json`.
 - `TabletopPlacementSpec` schema.
-- Orchestrator prompt for placement.
 - RoboTwin placement adapter.
 - Placement validation report.
 - Smoke video showing the placed scene is physically usable.
