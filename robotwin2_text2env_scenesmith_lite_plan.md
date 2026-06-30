@@ -385,7 +385,7 @@ policy = external pick-and-place policy
 ### 8.1 必须完成
 
 - [ ] 定义 TabletopPlacementSpec v0。
-- [ ] 定义 asset catalog entry format。
+- [x] 定义 asset catalog entry format，并建立 MVP 小样例：`asset_catalogs/robotwin_tabletop_assets_sample.json`。
 - [x] 选一个简单 placement prompt：an apple and a plate on the table。
 - [x] 准备或指定 apple / plate assets：`035_apple`、`003_plate`。
 - [ ] 写 Designer / Critic / Orchestrator prompts。
@@ -439,7 +439,13 @@ an apple and a plate on the table
 
 ### Step 2: 建 asset catalog 小样例
 
-先不接大资产库，做一个小 catalog：
+已建立第一个 MVP asset catalog：
+
+```text
+asset_catalogs/robotwin_tabletop_assets_sample.json
+```
+
+先不接大资产库，当前 catalog 只覆盖 apple / plate 两个资产，用于验证 agent 能完成最小 asset grounding：
 
 ```json
 [
@@ -586,7 +592,7 @@ policy/data/eval third
 ### High priority
 
 - [ ] 定义 TabletopPlacementSpec v0。
-- [ ] 定义 asset catalog sample。
+- [x] 定义 asset catalog sample：`asset_catalogs/robotwin_tabletop_assets_sample.json`。
 - [x] 选定第一个 placement prompt：an apple and a plate on the table。
 - [x] 确认 RoboTwin 基础资产库中有 apple / plate：`035_apple`、`003_plate`。
 - [ ] 写 apple-and-plate reference PlacementSpec。

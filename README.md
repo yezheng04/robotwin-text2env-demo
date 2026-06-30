@@ -93,8 +93,8 @@ pick the apple and place it on the plate
 First deliverables:
 
 - RoboTwin asset inventory for prompt writing: `robotwin_asset_inventory.md`.
+- Asset catalog sample: `asset_catalogs/robotwin_tabletop_assets_sample.json`.
 - `TabletopPlacementSpec` schema.
-- Asset catalog format.
 - Designer / Critic / Orchestrator prompts for placement.
 - RoboTwin placement adapter.
 - Placement validation report.
