@@ -1,232 +1,224 @@
-# RoboTwin Tabletop Background Scene Generation Plan
+# RoboTwin Tabletop Scene Generation Plan
 
 更新时间：2026-06-30  
 所属大任务：Self-Improving Agents for Physical AI  
-当前项目方向：SceneSmith-style tabletop background generation for existing RoboTwin tasks
+当前项目方向：SceneSmith-style tabletop scene generation for downstream RoboTwin robot tasks
 
 ---
 
-## 0. 方向重置
+## 0. 再次明确方向
 
-之前的路线是：
-
-```text
-Natural language task
--> Text2Env JSON
--> generate a new RoboTwin task program
--> data collection / train / eval
-```
-
-这个方向现在需要重构。新的理解是：
-
-> 我们不是要从自然语言生成一个新的 RoboTwin task，而是要学习 SceneSmith 的场景生成方式，为一个已经存在的 RoboTwin task 生成桌面级 background scene。
-
-也就是说，RoboTwin 里的 core task 已经存在，例如 `place_empty_cup`、`beat_block_hammer`、`place_object_basket`。我们要做的是给这个 task 自动生成更丰富、更语义一致、更物理可行的桌面背景环境：
+这次要更精确地区分三件事：
 
 ```text
-Existing RoboTwin task
-+ natural-language scene/background request
-+ asset library
--> tabletop scene spec
--> background asset placement
--> simulator validation
--> data/eval variants
+Scene generation != task generation != policy training
 ```
+
+我们现在要做的是 **scene generation**。
+
+也就是说，输入一句自然语言：
+
+```text
+a banana on the left side of the table and an apple on the right side
+```
+
+我们生成的应该是一个 RoboTwin 中可加载、可验证的桌面场景：
+
+```text
+table
++ banana placed on the left side
++ apple placed on the right side
++ physically valid poses
++ usable asset metadata
+```
+
+这个场景以后可以被下游机器人任务使用。例如，在这个场景上再定义或执行：
+
+```text
+pick the banana from the left side and move it to the right side
+```
+
+所以本项目的直接输出不是 `play_once()`、`check_success()` 或新的 RoboTwin task program，而是：
+
+```text
+simulation-ready tabletop scene
+```
+
+这个理解更接近 SceneSmith 页面里的 **Zero-Shot External Policy in Generated Scenes**：先生成物理可用场景，再让一个外部/下游 robot policy 在这些场景里执行任务。
 
 ---
 
 ## 1. 一句话目标
 
-为已有 RoboTwin tabletop manipulation task 自动生成可执行、可验证的桌面背景场景。
+学习 SceneSmith 的 agentic scene generation 思路，为 RoboTwin 生成桌面级 simulation-ready scenes，使这些场景可以被后续 RoboTwin task、外部 policy 或 evaluation pipeline 使用。
 
-最小目标：
+最小例子：
 
 ```text
-Input:
-  task_name = "place_empty_cup"
-  scene request = "a tidy breakfast tabletop with a plate, spoon, napkin, and fruit around the task area"
-  asset catalog = available tabletop assets
+Input scene prompt:
+  "a banana on the left side of the table and an apple on the right side"
 
-Output:
-  a RoboTwin-compatible background scene
-  placed assets that match the request
-  no collision with task-critical objects
-  no blockage of robot reachability
-  smoke test video/log showing the original task still runs
+Output scene:
+  banana asset on left tabletop area
+  apple asset on right tabletop area
+  no collisions
+  stable on table
+  visible to camera
+  reachable enough for a later pick-and-place task
+
+Possible downstream task:
+  "pick banana from the left side to the right side"
 ```
-
-这个项目的核心不再是 task program synthesis，而是：
-
-- 语义理解：自然语言中的背景物体、风格、约束是什么。
-- 资产 grounding：从丰富资产库里找到合适 asset。
-- 桌面布局：把 asset 放到桌面上，语义合理且物理稳定。
-- 任务兼容性：背景不能破坏已有 RoboTwin task 的执行。
-- agentic loop：用 Designer / Critic / Orchestrator 迭代出可用 scene。
 
 ---
 
-## 2. 新项目在大任务里的位置
+## 2. 和旧路线的区别
 
-Self-Improving Agents for Physical AI 需要一个能持续生成、评估、诊断、再生成的数据环境系统。新的 tabletop background generator 是这个闭环里的 setup / environment variation 模块。
-
-它回答的问题是：
+旧路线：
 
 ```text
-给定一个机器人任务，怎样自动生成更多有语义、有难度梯度、但不破坏任务定义的仿真背景？
+Natural language task
+-> Text2Env JSON
+-> generate RoboTwin task program
+-> collect data / train / eval
 ```
 
-在闭环里的位置：
+新路线：
 
 ```text
-Task / policy failure need
--> generate targeted tabletop background variants
--> collect data or evaluate policy
--> diagnose failures under clutter/background variation
--> generate next round of scenes
+Natural language scene prompt
+-> TabletopSceneSpec
+-> instantiate scene in RoboTwin
+-> downstream task / external policy runs in generated scene
 ```
 
-例如：
+关键变化：
 
-- policy 在 cluttered table 下失败，就生成更多不同 clutter density 的桌面背景。
-- policy 对 breakfast objects 误识别，就生成餐盘、杯子、餐具、水果等语义相关背景。
-- policy 被 distractor 干扰，就控制 distractor 距离、颜色、形状和数量。
+- 旧路线关注“生成任务代码”。
+- 新路线关注“生成场景”。
+- 旧路线的自然语言通常是 action-oriented，例如 move / pick / place。
+- 新路线的自然语言可以是 scene-oriented，例如 banana left, apple right, breakfast tabletop, cluttered toolbench。
+- 下游 task 可以在 scene 生成之后再定义。
 
 ---
 
-## 3. SceneSmith 给我们的启发
+## 3. SceneSmith 给我们的参考
 
-SceneSmith 的关键不是某个具体 asset，而是 agentic scene generation workflow。
+SceneSmith 是从自然语言生成 simulation-ready indoor scenes 的 agentic framework。它的页面里强调：
 
-我们参考它的三类 agent：
+- VLM agents 共同生成场景。
+- 场景直接可用于 physics simulator。
+- 生成场景可以支持外部 robot policy 的 zero-shot interaction。
+- 场景也可以用于 scalable policy evaluation。
 
-### 3.1 Designer
+我们不复刻完整 room / house scene generation，只取 tabletop 版本：
 
-Designer 负责提出初始场景设计。
+```text
+tabletop scene prompt
+-> object selection
+-> object placement
+-> physical validation
+-> RoboTwin scene loading
+-> downstream robot task compatibility
+```
+
+---
+
+## 4. 三个 agent 的新分工
+
+### 4.1 Designer agent
+
+Designer 负责把自然语言场景 prompt 变成初始桌面场景设计。
 
 输入：
 
-- RoboTwin task name。
-- task-critical objects / target region / robot setup。
-- natural-language background request。
-- asset catalog summary。
+- scene prompt。
 - tabletop bounds。
+- asset catalog。
+- optional downstream task hint。
+- optional robot/camera constraints。
 
 输出：
 
-- 需要哪些 background assets。
-- 每个 asset 的语义角色，例如 distractor、decor、support、container、occluder。
-- 每个 asset 的候选位置、朝向、尺度。
-- keep-out zones，避免碰撞 task object 和 robot motion path。
-- 预期难度，例如 clean / light clutter / medium clutter。
+- 需要哪些 objects。
+- 每个 object 的语义角色。
+- 每个 object 对应的 asset candidates。
+- 物体之间的空间关系。
+- 初始 pose proposal。
+- 可能的 keep-out / interaction zones。
 
-### 3.2 Critic
+例子：
 
-Critic 负责判断场景是否合理。
+```text
+Prompt:
+  a banana on the left side of the table and an apple on the right side
+
+Designer output:
+  banana: left tabletop region
+  apple: right tabletop region
+  table center kept mostly free if downstream pick-and-place is expected
+```
+
+### 4.2 Critic agent
+
+Critic 负责评估这个 scene 是否语义正确、物理可行、机器人可用。
 
 检查范围：
 
-- 语义匹配：资产是否符合自然语言。
-- 资产可用性：asset id 是否存在于资产库。
-- 桌面边界：物体是否在 tabletop bounds 内。
-- 碰撞：background assets 是否互相碰撞，是否碰 task-critical objects。
-- 稳定性：物体是否会掉落、穿桌、倾倒。
-- 任务兼容性：是否挡住抓取、放置、目标区域、相机视野。
-- 难度控制：clutter 是否过多或过少。
+- 语义是否匹配 prompt。
+- asset 是否存在，是否类别正确。
+- left / right / near / inside / on top 等 spatial relation 是否满足。
+- pose 是否在桌面边界内。
+- asset 是否互相碰撞。
+- asset 是否稳定放在桌上。
+- 是否保留了机器人可达空间。
+- 是否会遮挡相机或挡住下游 policy。
 
-Critic 不负责重新写 task，不负责训练 policy。
+Critic 不负责生成 task code，也不负责训练 policy。
 
-### 3.3 Orchestrator
+### 4.3 Orchestrator agent
 
 Orchestrator 负责沟通 Designer 和 Critic。
 
 它决定：
 
-- 接受当前 scene spec。
-- 要求 Designer 修改位置、换 asset、减少 clutter。
-- 触发 RoboTwin smoke test。
-- 把失败日志反馈给下一轮。
+- 接受 scene spec。
+- 要求 Designer 换 asset。
+- 要求 Designer 调整 pose。
+- 要求减少 clutter。
+- 触发 simulator validation。
+- 根据 RoboTwin logs 让 Designer 修复。
 
 最终输出：
 
 ```text
-final tabletop scene spec
+final TabletopSceneSpec
 validation report
 RoboTwin scene adapter command
 ```
 
 ---
 
-## 4. RoboTwin 在新项目里的角色
+## 5. 资产库的新边界
 
-RoboTwin 仍然是执行底座，但我们不再把重点放在创建新的 task program。
+资产生成本身不是当前重点。后续会有人负责更丰富的资产来源。
 
-RoboTwin 负责：
-
-- 提供已有 task。
-- 提供机器人、桌面、相机、物理仿真。
-- 加载资产。
-- 执行原 task 的 scripted policy / data collection / eval。
-- 输出 smoke logs、video、HDF5、success/failure。
-
-我们要接入的位置：
-
-```text
-~/RoboTwin/envs/<task_name>.py
-```
-
-主要关注已有 task 的：
-
-```python
-load_actors()
-play_once()
-check_success()
-```
-
-新项目只改或扩展 background scene 部分：
-
-- 在 `load_actors()` 之后或内部插入 background assets。
-- 不改变 `play_once()` 的核心动作逻辑。
-- 不改变 `check_success()` 的任务语义，除非只是增加 scene sanity check。
-
-推荐未来做一个轻量 adapter：
-
-```text
-SceneSpec JSON
--> inject background assets into RoboTwin task reset/load_actors
--> run smoke
-```
-
----
-
-## 5. 资产问题的新边界
-
-之前担心的是：如果自然语言里出现 RoboTwin 没有的 asset，例如 peach，流程会失效。
-
-新的项目边界是：
-
-> 资产生成或资产收集由其他人负责。我们假设后续会有一个更丰富的 asset library。我的重点是让 agent 理解自然语言并从资产库里选对、摆对、验证对。
-
-因此我们需要关心的是资产库接口，而不是训练 3D 生成模型。
-
-### 5.1 资产库需要提供什么
-
-每个 asset 至少需要：
+本项目假设会有一个 asset library，提供：
 
 ```text
 asset_id
 category
 natural-language tags
+thumbnail / preview
+visual mesh
+collision mesh
 dimensions
-visual mesh path
-collision mesh path
-mass / static flag
-stable pose hint
-optional contact points
-optional functional points
-thumbnail / preview image
+stable pose
+physical metadata
+optional affordance / functional points
 ```
 
-RoboTwin 安装路径仍然是：
+RoboTwin 最终安装路径仍然是：
 
 ```text
 ~/RoboTwin/assets/objects/<asset_id>/
@@ -244,413 +236,418 @@ RoboTwin 安装路径仍然是：
   asset_manifest.json
 ```
 
-### 5.2 我们需要做的 asset grounding
-
-自然语言：
+我们需要解决的是 **asset grounding**：
 
 ```text
-a tidy breakfast tabletop with a plate, spoon, napkin, and fruit
+"banana" -> choose a banana asset
+"apple" -> choose an apple asset
+"left side of table" -> convert to tabletop pose region
+"right side of table" -> convert to tabletop pose region
 ```
 
-需要转成：
+可用方法：
 
-```json
-[
-  {"semantic": "plate", "asset_id": "plate_...", "role": "background"},
-  {"semantic": "spoon", "asset_id": "spoon_...", "role": "background"},
-  {"semantic": "napkin", "asset_id": "napkin_...", "role": "background"},
-  {"semantic": "fruit", "asset_id": "apple_..." , "role": "background"}
-]
-```
-
-这一步可以用：
-
-- 文本 embedding。
-- CLIP / SigLIP 这类 image-text embedding。
-- VLM 对 asset thumbnails 做语义描述。
-- LLM 根据 asset catalog tags 选择。
-
-资产生成模型不是本项目重点。
+- LLM 读 asset catalog tags。
+- CLIP / SigLIP / VLM 对 thumbnails 做 image-text matching。
+- 规则约束：category 必须匹配，尺寸必须合理，stable_on_table 必须为 true。
 
 ---
 
-## 6. 新的中间表示：Tabletop SceneSpec
+## 6. 新的中间表示：TabletopSceneSpec
 
-旧的 Text2Env JSON 是为了生成 task program。新项目需要的是 SceneSpec，也就是“桌面背景场景规格”。
+旧 Text2Env 是为了描述任务。现在需要的是 `TabletopSceneSpec`，用于描述场景。
 
-建议 v0 schema：
+建议 v0：
 
 ```json
 {
   "schema_version": "robotwin.tabletop_scene.v0",
-  "task_name": "place_empty_cup",
-  "scene_name": "breakfast_light_clutter_v0",
-  "language_request": "a tidy breakfast tabletop with a plate, spoon, napkin, and fruit around the task area",
+  "scene_name": "banana_left_apple_right_v0",
+  "language_prompt": "a banana on the left side of the table and an apple on the right side",
   "workspace": {
     "surface": "table",
     "bounds": {
       "x": [-0.45, 0.45],
       "y": [-0.35, 0.25],
       "z": [0.74, 1.10]
+    },
+    "spatial_regions": {
+      "left_side": {
+        "x": [-0.35, -0.10],
+        "y": [-0.20, 0.15]
+      },
+      "right_side": {
+        "x": [0.10, 0.35],
+        "y": [-0.20, 0.15]
+      }
     }
   },
-  "task_anchors": {
-    "task_objects": ["cup", "coaster"],
-    "target_regions": ["coaster_region"],
-    "keep_out_zones": [
-      {
-        "id": "main_manipulation_zone",
-        "center": [0.0, -0.1, 0.75],
-        "size": [0.35, 0.25, 0.15]
-      }
-    ]
-  },
-  "background_assets": [
+  "objects": [
     {
-      "id": "plate_1",
-      "asset_id": "plate_white_01",
-      "semantic": "plate",
-      "role": "background_distractor",
+      "id": "banana_1",
+      "semantic": "banana",
+      "asset_id": "banana_asset_01",
+      "role": "manipuland_candidate",
       "pose": {
-        "xyz": [0.25, 0.05, 0.75],
+        "region": "left_side",
+        "xyz": [-0.22, -0.02, 0.75],
         "qpos": [1, 0, 0, 0]
       },
       "physical": {
-        "is_static": true,
-        "collision": true
+        "is_static": false,
+        "collision": true,
+        "stable_on_table": true
+      }
+    },
+    {
+      "id": "apple_1",
+      "semantic": "apple",
+      "asset_id": "apple_asset_01",
+      "role": "target_or_distractor",
+      "pose": {
+        "region": "right_side",
+        "xyz": [0.22, -0.02, 0.75],
+        "qpos": [1, 0, 0, 0]
+      },
+      "physical": {
+        "is_static": false,
+        "collision": true,
+        "stable_on_table": true
       }
     }
   ],
   "constraints": [
-    "do_not_overlap_task_objects",
-    "do_not_block_robot_reach",
-    "remain_on_table",
-    "preserve_task_success_definition"
+    "objects_on_table",
+    "no_initial_collision",
+    "satisfy_left_right_relation",
+    "keep_robot_reachable"
+  ],
+  "downstream_task_hints": [
+    "pick banana from left side to right side"
   ],
   "validation": {
-    "semantic_match": "pending",
+    "semantic_check": "pending",
+    "asset_check": "pending",
     "collision_check": "pending",
     "stability_check": "pending",
-    "task_smoke": "pending"
+    "robotwin_load_check": "pending"
   }
 }
 ```
 
-这个 SceneSpec 不生成新 task，它只描述 background assets 如何放进已有 task。
+注意：这里没有 `play_once()`，没有 `check_success()`。它描述的是场景，不是任务。
 
 ---
 
-## 7. What To Do
+## 7. RoboTwin 里的落点
 
-### 7.1 必须完成
+我们要把 TabletopSceneSpec 实例化到 RoboTwin。
 
-- [ ] 选 1-2 个已有 RoboTwin tabletop task 作为基准，例如 `place_empty_cup`、`beat_block_hammer`。
-- [ ] 摸清这些 task 的 `load_actors()` 中哪些是 task-critical objects。
-- [ ] 定义 Tabletop SceneSpec v0。
-- [ ] 定义 asset catalog format。
-- [ ] 写 Designer / Critic / Orchestrator prompt。
-- [ ] 写一个人工 SceneSpec example。
-- [ ] 写 SceneSpec -> RoboTwin background injection 的最小 adapter。
-- [ ] 写 collision / bounds / keep-out validation。
-- [ ] 跑 RoboTwin smoke，证明原 task 加 background 后还能执行。
-- [ ] 保存视频、日志、validation report。
-
-### 7.2 暂不做
-
-- [ ] 不生成新的 RoboTwin task program。
-- [ ] 不训练 3D asset generation model。
-- [ ] 不做完整房间/住宅场景。
-- [ ] 不做大规模 policy training result。
-- [ ] 不解决复杂 articulated asset 生成。
-
-### 7.3 最小交付物 MVP
-
-MVP 应该包含：
+可能实现方式：
 
 ```text
-1. SceneSpec schema draft
-2. 一个已有 RoboTwin task 的 task-context note
-3. 一个 asset catalog 小样例
-4. Designer / Critic / Orchestrator prompt
-5. 一个 background scene example
-6. 一个 RoboTwin adapter prototype
-7. 一次 smoke test 视频或失败日志
+Option A: 写一个通用 scene loader/helper
+Option B: 写一个 base tabletop scene task，只负责加载场景
+Option C: 写一个 wrapper，在下游 task reset 前加载指定 scene
+```
+
+推荐从 Option A 开始：
+
+```python
+def load_tabletop_scene(task, scene_spec):
+    task.scene_objects = {}
+    for obj in scene_spec["objects"]:
+        actor = create_actor(
+            scene=task,
+            pose=sapien.Pose(obj["pose"]["xyz"], obj["pose"]["qpos"]),
+            modelname=obj["asset_id"],
+            convex=True,
+            is_static=obj["physical"].get("is_static", False),
+            model_id=obj.get("model_id", 0),
+        )
+        task.scene_objects[obj["id"]] = actor
+```
+
+后续下游 task 可以引用这个场景：
+
+```text
+scene = banana_left_apple_right_v0
+task = pick banana and place near apple
+policy = external pick-and-place policy
 ```
 
 ---
 
-## 8. How To Do
+## 8. What To Do
 
-### Step 1: 选择已有 RoboTwin task
+### 8.1 必须完成
 
-优先选择已有、稳定、scripted policy 能跑通的 task。
+- [ ] 定义 TabletopSceneSpec v0。
+- [ ] 定义 asset catalog entry format。
+- [ ] 选一个简单 scene prompt：banana left, apple right。
+- [ ] 准备或指定 banana / apple assets。
+- [ ] 写 Designer / Critic / Orchestrator prompts。
+- [ ] 写一个人工 TabletopSceneSpec reference。
+- [ ] 写 SceneSpec validator。
+- [ ] 写 RoboTwin scene loader helper。
+- [ ] 在 RoboTwin 中加载该 scene。
+- [ ] 跑 load / stability / camera smoke。
+- [ ] 记录该 scene 可供下游 task 使用的方式。
 
-候选：
+### 8.2 暂不做
 
-```text
-place_empty_cup
-beat_block_hammer
-place_object_basket
-move_pillbottle_pad
-```
+- [ ] 不以生成新 task program 为主目标。
+- [ ] 不训练 3D asset generator。
+- [ ] 不复刻完整房间/住宅 SceneSmith。
+- [ ] 不要求一开始完成 policy training。
+- [ ] 不要求一开始自动生成 success predicate。
 
-选择标准：
-
-- task 逻辑简单。
-- task-critical object 数量少。
-- 桌面空间还有余量放 background。
-- `collect_data.sh <task> demo_smoke 0` 能跑。
-- 视频可解释。
-
-产出：
-
-```text
-task_context/<task_name> summary
-critical objects
-target region
-keep-out zone
-baseline smoke command
-```
-
-### Step 2: 读 RoboTwin task 的场景接口
-
-需要明确：
-
-- task 在哪里创建 object。
-- 哪些 object 是必须保留的。
-- 物体 pose 的桌面坐标范围。
-- `add_prohibit_area(...)` 如何保护区域。
-- background assets 是否应该 static。
-- 当前 task 的相机能否看到 background。
-
-重点文件：
+### 8.3 MVP 交付物
 
 ```text
-~/RoboTwin/envs/<task_name>.py
-~/RoboTwin/envs/utils/create_actor.py
-~/RoboTwin/envs/utils/rand_create_actor.py
+1. TabletopSceneSpec schema draft
+2. asset catalog sample
+3. Designer / Critic / Orchestrator prompt draft
+4. banana-left apple-right scene spec
+5. RoboTwin scene loader helper
+6. RoboTwin load/stability smoke result
+7. explanation of how a downstream RoboTwin task can consume the scene
 ```
 
-### Step 3: 定义 asset catalog
+---
 
-资产库不需要由本项目生成，但需要能被 agent 读懂。
+## 9. How To Do
 
-建议 catalog entry：
+### Step 1: 选第一个 scene prompt
+
+建议从最简单开始：
+
+```text
+a banana on the left side of the table and an apple on the right side
+```
+
+这个 prompt 好处：
+
+- 语义清晰。
+- 空间关系清晰。
+- 只需要两个物体。
+- 后续能自然接 pick-and-place task。
+- 容易通过视觉和 simulator state 验证。
+
+### Step 2: 建 asset catalog 小样例
+
+先不接大资产库，做一个小 catalog：
+
+```json
+[
+  {
+    "asset_id": "banana_asset_01",
+    "category": "banana",
+    "tags": ["banana", "fruit", "yellow", "elongated"],
+    "size_m": [0.16, 0.04, 0.04],
+    "stable_on_table": true,
+    "graspable": true,
+    "robotwin_path": "~/RoboTwin/assets/objects/banana_asset_01"
+  },
+  {
+    "asset_id": "apple_asset_01",
+    "category": "apple",
+    "tags": ["apple", "fruit", "red", "round"],
+    "size_m": [0.08, 0.08, 0.08],
+    "stable_on_table": true,
+    "graspable": true,
+    "robotwin_path": "~/RoboTwin/assets/objects/apple_asset_01"
+  }
+]
+```
+
+### Step 3: 让 Designer 生成初始 SceneSpec
+
+Designer prompt 应要求：
+
+- 识别场景里需要的 objects。
+- 找到合适 asset。
+- 将 left/right 映射成桌面坐标区域。
+- 生成 pose。
+- 保证不碰撞、不越界。
+- 给出下游 task hints。
+
+### Step 4: 让 Critic 检查 SceneSpec
+
+Critic prompt 应限制在：
+
+- semantic match。
+- asset availability。
+- spatial relation。
+- tabletop bounds。
+- collision / stability。
+- downstream robot usability。
+
+Critic 输出：
 
 ```json
 {
-  "asset_id": "plate_white_01",
-  "category": "plate",
-  "tags": ["breakfast", "kitchen", "white plate", "flat"],
-  "size_m": [0.18, 0.18, 0.02],
-  "stable_on_table": true,
-  "graspable": false,
-  "is_static_default": true,
-  "robotwin_path": "~/RoboTwin/assets/objects/plate_white_01",
-  "thumbnail": "asset_thumbnails/plate_white_01.png"
+  "verdict": "accept_or_repair",
+  "issues": [],
+  "repair_suggestions": []
 }
 ```
 
-### Step 4: 做 SceneSmith-lite agents
+### Step 5: Orchestrator 输出 final scene
 
-三个 agent 的输入输出：
-
-```text
-Designer:
-  task context + scene request + asset catalog
-  -> initial SceneSpec
-
-Critic:
-  SceneSpec + constraints + validation logs
-  -> issues + repair suggestions
-
-Orchestrator:
-  Designer draft + Critic report
-  -> final SceneSpec or retry request
-```
-
-Critic 必须明确限制在：
-
-- tabletop semantic fit。
-- asset availability。
-- collision / stability。
-- object poses。
-- task compatibility。
-- RoboTwin API usage。
-
-### Step 5: SceneSpec -> RoboTwin adapter
-
-adapter 不应该生成新 task，而是把 background assets 注入已有 task。
-
-可能路线：
+Orchestrator 根据 Designer 和 Critic 输出：
 
 ```text
-Option A: 生成一个 task wrapper / subclass
-Option B: 在现有 task 的 load_actors 后插入 background loader
-Option C: 做一个通用 helper: load_background_scene(self, scene_spec)
+final_scene_spec.json
+validation_plan.json
 ```
 
-推荐从 Option C 开始。
+### Step 6: RoboTwin scene loader
 
-伪代码：
-
-```python
-def load_background_scene(task, scene_spec):
-    for item in scene_spec["background_assets"]:
-        actor = create_actor(
-            scene=task,
-            pose=sapien.Pose(item["pose"]["xyz"], item["pose"]["qpos"]),
-            modelname=item["asset_id"],
-            convex=True,
-            is_static=item["physical"].get("is_static", True),
-            model_id=item["asset"].get("model_id", 0),
-        )
-        task.background_actors.append(actor)
-```
-
-### Step 6: validation
-
-先做 lightweight validation，再做 simulator smoke。
-
-静态检查：
-
-- asset id 是否存在。
-- pose 是否在 tabletop bounds 内。
-- bounding boxes 是否重叠。
-- 是否进入 keep-out zone。
-- 数量是否符合 clutter level。
-
-仿真检查：
-
-- reset 后物体是否稳定。
-- 是否穿桌或飞走。
-- task scripted policy 是否还能跑。
-- success rate 是否明显下降。
-- 视频中语义是否符合 scene request。
-
-### Step 7: smoke / eval
-
-最小 smoke：
-
-```bash
-cd ~/RoboTwin
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate RoboTwin
-timeout 900 bash collect_data.sh <task_name> demo_smoke 0
-```
-
-未来 eval：
+实现一个 helper，不要生成新 task：
 
 ```text
-baseline task
-vs
-task + generated background scene variants
+scripts/load_tabletop_scene.py
 ```
 
-对比：
+或者先在 RoboTwin 内写：
 
-- success / fail。
-- collision fail。
-- planning fail。
-- camera visibility。
-- policy robustness。
+```text
+envs/utils/load_tabletop_scene.py
+```
+
+目标是把 SceneSpec 里的物体实例化到 RoboTwin scene。
+
+### Step 7: validation / smoke
+
+验证分两层：
+
+静态 validation：
+
+- asset id exists。
+- pose in bounds。
+- no bbox overlap。
+- left/right relation correct。
+
+RoboTwin validation：
+
+- scene loads。
+- objects stable。
+- video/camera can see objects。
+- simple downstream policy/task can reference scene objects。
 
 ---
 
-## 9. 新旧文件判断
+## 10. 后续如何接 RoboTwin task
 
-旧路线中以下内容已经不再是主线：
+Scene 生成后，下游 task 可以有两种方式使用：
 
-- Text2Env task schema。
-- env JSON -> RoboTwin task program generator。
-- generated `move_object_between_zones` task。
-- TaskB smoke preview。
-- ACT policy hook for generated task。
+### 10.1 外部 policy 直接使用 scene
 
-这些可以删除或移出主仓库，避免 GitHub 首页和代码结构继续暗示“我们在做 task generation”。
+类似 SceneSmith 的 external policy demo：
 
-仍然有参考价值但不作为主线：
+```text
+generated scene
++ language-conditioned policy
+-> policy executes: pick banana and place it near apple
+```
 
-- 旧 smoke 经验：说明 RoboTwin data collection 如何跑。
-- 旧 `create_actor` 调试经验：说明 asset 的 `is_static`、collision、qpos 会影响稳定性。
-- 旧 agent loop：Designer / Critic / Orchestrator 的组织方式仍可保留思想。
+这要求 policy 本身能理解 scene observations 和 language command。
+
+### 10.2 RoboTwin task 消费 scene
+
+后续可以写一个 RoboTwin task，但这是 scene 之后的下游模块：
+
+```text
+scene_spec = banana_left_apple_right_v0
+task = pick_banana_left_to_right
+```
+
+task 不需要重新决定 banana/apple 怎么摆；它读取 scene 里的 object id 和 pose。
+
+也就是说：
+
+```text
+scene generation first
+task definition second
+policy/data/eval third
+```
 
 ---
 
-## 10. 当前 TODO
+## 11. 当前 TODO
 
 ### High priority
 
-- [ ] 选定第一个已有 RoboTwin task 作为 background generation demo。
-- [ ] 写 task context note，列出 task-critical objects、target region、keep-out zone。
-- [ ] 定义 Tabletop SceneSpec v0。
-- [ ] 定义 asset catalog entry format。
-- [ ] 写 Designer / Critic / Orchestrator prompt v0。
-- [ ] 手写一个 background scene spec 作为 reference。
+- [ ] 定义 TabletopSceneSpec v0。
+- [ ] 定义 asset catalog sample。
+- [ ] 确认 RoboTwin / rich asset library 中是否有 banana 和 apple。
+- [ ] 写 banana-left apple-right reference SceneSpec。
+- [ ] 写三个 agent prompts：Designer、Critic、Orchestrator。
+- [ ] 写 SceneSpec validator。
 
 ### Medium priority
 
-- [ ] 写 SceneSpec validator。
-- [ ] 写 RoboTwin background loader helper。
-- [ ] 跑 baseline task smoke。
-- [ ] 跑 task + background smoke。
-- [ ] 保存视频、scene spec、validation report。
+- [ ] 写 RoboTwin scene loader helper。
+- [ ] 跑 banana/apple scene load smoke。
+- [ ] 保存 validation report 和视频。
+- [ ] 写下游 task 消费 scene 的接口说明。
 
 ### Lower priority
 
-- [ ] 接入 VLM/embedding 做 asset retrieval。
-- [ ] 生成多种 clutter level。
-- [ ] 做 scene diversity metrics。
-- [ ] 对 policy eval success rate 做对比。
+- [ ] 接入 VLM / embedding 做 asset retrieval。
+- [ ] 生成多种 scene prompt。
+- [ ] 接入 external policy eval。
+- [ ] 做 success/failure evaluator。
 
 ---
 
-## 11. 风险和判断
+## 12. 风险和判断
 
-### Risk 1: background 干扰原 task scripted policy
-
-处理方式：
-
-- 明确 keep-out zone。
-- 默认 background assets 放到 task manipulation path 外。
-- 先用 static assets。
-- 每个 scene 必须跑 smoke。
-
-### Risk 2: 资产语义匹配不准
+### Risk 1: 又滑回 task generation
 
 处理方式：
 
-- asset catalog 必须有 tags、category、thumbnail。
-- 用 VLM 或 embedding 做 asset retrieval。
-- Critic 检查 selected asset 是否符合 scene request。
+- 文档和 README 明确：项目主输出是 scene。
+- SceneSpec 不包含 `play_once()` / `check_success()`。
+- RoboTwin task 是下游消费者，不是当前主目标。
 
-### Risk 3: collision mesh 不可靠
-
-处理方式：
-
-- background asset 优先使用已验证 collision。
-- 先做 simple bounding-box overlap check。
-- 再用 RoboTwin reset stability check。
-
-### Risk 4: 场景好看但对机器人无意义
+### Risk 2: asset 语义匹配不准
 
 处理方式：
 
-- scene request 必须和 task/failure mode 相关。
-- 设计 clutter level、semantic distractor、visual distractor。
-- eval 时记录 task success/failure reason。
+- asset catalog 必须包含 category、tags、thumbnail。
+- Critic 检查 asset 是否满足 prompt。
+- 后续用 VLM/embedding 辅助 retrieval。
 
-### Risk 5: 又滑回 task generation
+### Risk 3: pose 语义不准
 
 处理方式：
 
-- 规定本项目不生成新的 `play_once()` 和 `check_success()`。
-- 只对已有 task 注入 background scene。
-- README 和计划文档统一使用 scene/background generation 表述。
+- 明确 tabletop coordinate convention。
+- left/right/front/back 映射到 workspace regions。
+- validator 检查 spatial relation。
+
+### Risk 4: 生成 scene 物理不可用
+
+处理方式：
+
+- static bbox validation。
+- RoboTwin load check。
+- stability check。
+- collision check。
+
+### Risk 5: 场景可用但对机器人任务没有价值
+
+处理方式：
+
+- SceneSpec 加 `downstream_task_hints`。
+- 生成时保留 reachability。
+- 用简单 pick-and-place task 做 sanity check。
 
 ---
 
-## 12. 远程环境状态
+## 13. 远程环境状态
 
 默认远程路径：
 
@@ -668,10 +665,10 @@ VS Code Remote 注意：
 
 ---
 
-## 13. References
+## 14. References
 
+- SceneSmith project page: https://scenesmith.github.io/
+- SceneSmith repo: https://github.com/nepfaff/scenesmith
 - RoboTwin project page: https://robotwin-platform.github.io/
 - RoboTwin official repo: https://github.com/robotwin-Platform/robotwin
 - RoboTwin documentation: https://robotwin-platform.github.io/doc/index.html
-- SceneSmith project page: https://scenesmith.github.io/
-- SceneSmith repo: https://github.com/nepfaff/scenesmith

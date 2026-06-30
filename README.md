@@ -1,57 +1,64 @@
-# RoboTwin Tabletop Background Scene Generator
+# RoboTwin Tabletop Scene Generator
 
 SceneSmith-style tabletop scene generation for RoboTwin.
 
-This project is being refocused. The goal is no longer to generate a new RoboTwin task program from natural language. The new goal is:
+This project is being refocused around **simulation-ready tabletop scenes**. The goal is not to generate a new RoboTwin task program directly. The goal is to generate a tabletop scene that a downstream robot task or external policy can use.
+
+Example:
 
 ```text
-given an existing RoboTwin task
--> generate a semantically meaningful tabletop background scene
--> place assets around the task without breaking manipulation
--> validate collision, stability, reachability, and task compatibility
+Scene request:
+  a banana on the left side of the table and an apple on the right side
+
+Generated scene:
+  table + banana placed on the left + apple placed on the right
+
+Possible downstream RoboTwin task:
+  pick the banana from the left side and move it to the right side
 ```
 
 ## What We Are Building
 
-A lightweight SceneSmith-inspired agent loop for RoboTwin tabletop scenes:
+A lightweight SceneSmith-inspired agent loop:
 
 ```text
 Natural-language scene request
--> Designer agent proposes tabletop background layout
--> Critic agent checks semantic fit and physical/task feasibility
--> Orchestrator agent revises and finalizes a scene spec
--> Scene adapter places assets in RoboTwin
--> RoboTwin smoke/eval verifies the task still works
+-> Designer agent proposes objects and tabletop layout
+-> Critic agent checks semantic fit and physical/robot usability
+-> Orchestrator agent revises and finalizes the scene
+-> RoboTwin scene adapter instantiates the scene
+-> Downstream robot task or external policy runs in the scene
 ```
 
-The assets are expected to come from a richer asset library. This repo focuses on selecting, grounding, placing, and validating those assets in RoboTwin.
+The asset problem is treated as a library/retrieval problem. Assets are expected to come from a richer asset library; this repo focuses on understanding the scene request, selecting assets, placing them correctly, and validating the scene in RoboTwin.
 
 ## Scope
 
 In scope:
 
-- Generate tabletop background/distractor scenes for existing RoboTwin tasks.
-- Retrieve assets from a provided asset library.
-- Produce a structured scene spec with asset ids, poses, keep-out zones, and constraints.
-- Insert background assets into RoboTwin without changing the core task logic.
-- Validate collision, stability, robot reachability, camera visibility, and task success.
+- Generate tabletop scenes from natural language.
+- Retrieve semantically appropriate assets from an asset catalog.
+- Place assets on the table with meaningful spatial relations.
+- Produce a structured `TabletopSceneSpec`.
+- Instantiate the scene in RoboTwin.
+- Validate collision, stability, reachability, camera visibility, and downstream task usability.
 
 Out of scope for this repo:
 
 - Training a 3D asset generation model.
-- Generating a new RoboTwin task from scratch.
-- Creating articulated assets such as drawers from natural language.
+- Directly generating a new RoboTwin task program as the main objective.
 - Full room/house-scale SceneSmith reproduction.
+- Solving every downstream manipulation policy.
 
-## Current Planning Document
+## Active Design
 
-The active design is in:
+The current project plan is:
 
 ```text
 robotwin2_text2env_scenesmith_lite_plan.md
 ```
 
-The previous Text2Env task-generation prototype has been removed from the main repo to avoid confusion.
+The old Text2Env task-generation prototype has been removed from the main repo to avoid confusion.
 
 ## RoboTwin Path Assumption
 
@@ -69,16 +76,23 @@ On the 5090 machine this points to:
 
 ## Next MVP
 
-Use one existing RoboTwin task, for example `place_empty_cup` or `beat_block_hammer`, and generate 3-5 tabletop background variants such as:
+Start with simple tabletop scene prompts:
 
 ```text
-a tidy breakfast tabletop with a plate, spoon, napkin, and fruit around the task area, without blocking the robot arms
+a banana on the left side of the table and an apple on the right side
 ```
 
-The first useful deliverables are:
+Then instantiate the scene in RoboTwin and verify that it can support a downstream task such as:
 
-- `SceneSpec` schema for tabletop background placement.
-- Asset catalog format for retrieval and grounding.
+```text
+pick the banana from the left side and place it near the apple on the right side
+```
+
+First deliverables:
+
+- `TabletopSceneSpec` schema.
+- Asset catalog format.
 - Designer / Critic / Orchestrator prompts.
-- RoboTwin scene adapter that injects background assets.
-- Smoke logs and videos showing the original task still runs with generated background scenes.
+- RoboTwin scene adapter.
+- Scene validation report.
+- Smoke video showing the generated scene is physically usable.
