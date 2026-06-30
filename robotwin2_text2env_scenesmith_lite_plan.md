@@ -1,8 +1,8 @@
-# RoboTwin Tabletop Scene Generation Plan
+# RoboTwin Tabletop Placement Agent Plan
 
 更新时间：2026-06-30  
 所属大任务：Self-Improving Agents for Physical AI  
-当前项目方向：SceneSmith-style tabletop scene generation for downstream RoboTwin robot tasks
+当前项目方向：SceneSmith-style tabletop placement agent for downstream RoboTwin robot tasks
 
 ---
 
@@ -11,10 +11,10 @@
 这次要更精确地区分三件事：
 
 ```text
-Scene generation != task generation != policy training
+Placement generation != task generation != policy training
 ```
 
-我们现在要做的是 **scene generation**。
+我们现在要做的是 **placement agent**：根据自然语言和资产库决定桌面资产应该如何摆放。
 
 也就是说，输入一句自然语言：
 
@@ -41,24 +41,26 @@ pick the banana from the left side and move it to the right side
 所以本项目的直接输出不是 `play_once()`、`check_success()` 或新的 RoboTwin task program，而是：
 
 ```text
-simulation-ready tabletop scene
+simulation-ready tabletop placement / placed scene
 ```
 
 这个理解更接近 SceneSmith 页面里的 **Zero-Shot External Policy in Generated Scenes**：先生成物理可用场景，再让一个外部/下游 robot policy 在这些场景里执行任务。
+
+博士生给我的要求可以概括为：**做一个 placement agent，通过 agentic 的方式解决桌面场景里资产如何摆放的问题。** 资产生成、完整任务生成和 policy 训练都不是当前主线。
 
 ---
 
 ## 1. 一句话目标
 
-学习 SceneSmith 的 agentic scene generation 思路，为 RoboTwin 生成桌面级 simulation-ready scenes，使这些场景可以被后续 RoboTwin task、外部 policy 或 evaluation pipeline 使用。
+学习 SceneSmith 的 agentic scene construction 思路，专注做 RoboTwin tabletop placement agent：把自然语言里的空间语义转成资产选择和桌面 pose，使生成的 placed scene 可以被后续 RoboTwin task、外部 policy 或 evaluation pipeline 使用。
 
 最小例子：
 
 ```text
-Input scene prompt:
+Input placement prompt:
   "a banana on the left side of the table and an apple on the right side"
 
-Output scene:
+Output placement:
   banana asset on left tabletop area
   apple asset on right tabletop area
   no collisions
@@ -86,18 +88,18 @@ Natural language task
 新路线：
 
 ```text
-Natural language scene prompt
--> TabletopSceneSpec
--> instantiate scene in RoboTwin
--> downstream task / external policy runs in generated scene
+Natural language placement prompt
+-> TabletopPlacementSpec
+-> instantiate placed scene in RoboTwin
+-> downstream task / external policy runs in generated placed scene
 ```
 
 关键变化：
 
 - 旧路线关注“生成任务代码”。
-- 新路线关注“生成场景”。
+- 新路线关注“资产选择与桌面摆放”，也就是 placement。
 - 旧路线的自然语言通常是 action-oriented，例如 move / pick / place。
-- 新路线的自然语言可以是 scene-oriented，例如 banana left, apple right, breakfast tabletop, cluttered toolbench。
+- 新路线的自然语言可以是 placement-oriented，例如 banana left, apple right, breakfast tabletop, cluttered toolbench。
 - 下游 task 可以在 scene 生成之后再定义。
 
 ---
@@ -106,7 +108,7 @@ Natural language scene prompt
 
 SceneSmith 是从自然语言生成 simulation-ready indoor scenes 的 agentic framework。它的页面里强调：
 
-- VLM agents 共同生成场景。
+- VLM agents 共同生成 simulation-ready scene。
 - 场景直接可用于 physics simulator。
 - 生成场景可以支持外部 robot policy 的 zero-shot interaction。
 - 场景也可以用于 scalable policy evaluation。
@@ -114,7 +116,7 @@ SceneSmith 是从自然语言生成 simulation-ready indoor scenes 的 agentic f
 我们不复刻完整 room / house scene generation，只取 tabletop 版本：
 
 ```text
-tabletop scene prompt
+tabletop placement prompt
 -> object selection
 -> object placement
 -> physical validation
@@ -124,15 +126,15 @@ tabletop scene prompt
 
 ---
 
-## 4. 三个 agent 的新分工
+## 4. 三个 placement agents 的分工
 
 ### 4.1 Designer agent
 
-Designer 负责把自然语言场景 prompt 变成初始桌面场景设计。
+Designer 负责把自然语言 placement prompt 变成初始桌面资产摆放方案。
 
 输入：
 
-- scene prompt。
+- placement prompt。
 - tabletop bounds。
 - asset catalog。
 - optional downstream task hint。
@@ -161,7 +163,7 @@ Designer output:
 
 ### 4.2 Critic agent
 
-Critic 负责评估这个 scene 是否语义正确、物理可行、机器人可用。
+Critic 负责评估这个 placement 是否语义正确、物理可行、机器人可用。
 
 检查范围：
 
@@ -182,7 +184,7 @@ Orchestrator 负责沟通 Designer 和 Critic。
 
 它决定：
 
-- 接受 scene spec。
+- 接受 placement spec。
 - 要求 Designer 换 asset。
 - 要求 Designer 调整 pose。
 - 要求减少 clutter。
@@ -192,7 +194,7 @@ Orchestrator 负责沟通 Designer 和 Critic。
 最终输出：
 
 ```text
-final TabletopSceneSpec
+final TabletopPlacementSpec
 validation report
 RoboTwin scene adapter command
 ```
@@ -253,16 +255,16 @@ RoboTwin 最终安装路径仍然是：
 
 ---
 
-## 6. 新的中间表示：TabletopSceneSpec
+## 6. 新的中间表示：TabletopPlacementSpec
 
-旧 Text2Env 是为了描述任务。现在需要的是 `TabletopSceneSpec`，用于描述场景。
+旧 Text2Env 是为了描述任务。现在需要的是 `TabletopPlacementSpec`，用于描述资产选择、空间关系和桌面 pose。
 
 建议 v0：
 
 ```json
 {
-  "schema_version": "robotwin.tabletop_scene.v0",
-  "scene_name": "banana_left_apple_right_v0",
+  "schema_version": "robotwin.tabletop_placement.v0",
+  "placement_name": "banana_left_apple_right_v0",
   "language_prompt": "a banana on the left side of the table and an apple on the right side",
   "workspace": {
     "surface": "table",
@@ -335,18 +337,18 @@ RoboTwin 最终安装路径仍然是：
 }
 ```
 
-注意：这里没有 `play_once()`，没有 `check_success()`。它描述的是场景，不是任务。
+注意：这里没有 `play_once()`，没有 `check_success()`。它描述的是 placement，不是任务。
 
 ---
 
 ## 7. RoboTwin 里的落点
 
-我们要把 TabletopSceneSpec 实例化到 RoboTwin。
+我们要把 TabletopPlacementSpec 实例化到 RoboTwin。
 
 可能实现方式：
 
 ```text
-Option A: 写一个通用 scene loader/helper
+Option A: 写一个通用 placement loader/helper
 Option B: 写一个 base tabletop scene task，只负责加载场景
 Option C: 写一个 wrapper，在下游 task reset 前加载指定 scene
 ```
@@ -354,9 +356,9 @@ Option C: 写一个 wrapper，在下游 task reset 前加载指定 scene
 推荐从 Option A 开始：
 
 ```python
-def load_tabletop_scene(task, scene_spec):
-    task.scene_objects = {}
-    for obj in scene_spec["objects"]:
+def load_tabletop_placement(task, placement_spec):
+    task.placement_objects = {}
+    for obj in placement_spec["objects"]:
         actor = create_actor(
             scene=task,
             pose=sapien.Pose(obj["pose"]["xyz"], obj["pose"]["qpos"]),
@@ -365,7 +367,7 @@ def load_tabletop_scene(task, scene_spec):
             is_static=obj["physical"].get("is_static", False),
             model_id=obj.get("model_id", 0),
         )
-        task.scene_objects[obj["id"]] = actor
+        task.placement_objects[obj["id"]] = actor
 ```
 
 后续下游 task 可以引用这个场景：
@@ -382,14 +384,14 @@ policy = external pick-and-place policy
 
 ### 8.1 必须完成
 
-- [ ] 定义 TabletopSceneSpec v0。
+- [ ] 定义 TabletopPlacementSpec v0。
 - [ ] 定义 asset catalog entry format。
-- [ ] 选一个简单 scene prompt：banana left, apple right。
+- [ ] 选一个简单 placement prompt：banana left, apple right。
 - [ ] 准备或指定 banana / apple assets。
 - [ ] 写 Designer / Critic / Orchestrator prompts。
-- [ ] 写一个人工 TabletopSceneSpec reference。
-- [ ] 写 SceneSpec validator。
-- [ ] 写 RoboTwin scene loader helper。
+- [ ] 写一个人工 TabletopPlacementSpec reference。
+- [ ] 写 PlacementSpec validator。
+- [ ] 写 RoboTwin placement loader helper。
 - [ ] 在 RoboTwin 中加载该 scene。
 - [ ] 跑 load / stability / camera smoke。
 - [ ] 记录该 scene 可供下游 task 使用的方式。
@@ -405,11 +407,11 @@ policy = external pick-and-place policy
 ### 8.3 MVP 交付物
 
 ```text
-1. TabletopSceneSpec schema draft
+1. TabletopPlacementSpec schema draft
 2. asset catalog sample
 3. Designer / Critic / Orchestrator prompt draft
-4. banana-left apple-right scene spec
-5. RoboTwin scene loader helper
+4. banana-left apple-right placement spec
+5. RoboTwin placement loader helper
 6. RoboTwin load/stability smoke result
 7. explanation of how a downstream RoboTwin task can consume the scene
 ```
@@ -418,7 +420,7 @@ policy = external pick-and-place policy
 
 ## 9. How To Do
 
-### Step 1: 选第一个 scene prompt
+### Step 1: 选第一个 placement prompt
 
 建议从最简单开始：
 
@@ -461,7 +463,7 @@ a banana on the left side of the table and an apple on the right side
 ]
 ```
 
-### Step 3: 让 Designer 生成初始 SceneSpec
+### Step 3: 让 Designer 生成初始 PlacementSpec
 
 Designer prompt 应要求：
 
@@ -472,7 +474,7 @@ Designer prompt 应要求：
 - 保证不碰撞、不越界。
 - 给出下游 task hints。
 
-### Step 4: 让 Critic 检查 SceneSpec
+### Step 4: 让 Critic 检查 PlacementSpec
 
 Critic prompt 应限制在：
 
@@ -493,30 +495,30 @@ Critic 输出：
 }
 ```
 
-### Step 5: Orchestrator 输出 final scene
+### Step 5: Orchestrator 输出 final placement
 
 Orchestrator 根据 Designer 和 Critic 输出：
 
 ```text
-final_scene_spec.json
+final_placement_spec.json
 validation_plan.json
 ```
 
-### Step 6: RoboTwin scene loader
+### Step 6: RoboTwin placement loader
 
 实现一个 helper，不要生成新 task：
 
 ```text
-scripts/load_tabletop_scene.py
+scripts/load_tabletop_placement.py
 ```
 
 或者先在 RoboTwin 内写：
 
 ```text
-envs/utils/load_tabletop_scene.py
+envs/utils/load_tabletop_placement.py
 ```
 
-目标是把 SceneSpec 里的物体实例化到 RoboTwin scene。
+目标是把 PlacementSpec 里的物体实例化到 RoboTwin scene。
 
 ### Step 7: validation / smoke
 
@@ -540,14 +542,14 @@ RoboTwin validation：
 
 ## 10. 后续如何接 RoboTwin task
 
-Scene 生成后，下游 task 可以有两种方式使用：
+Placement 生成后，下游 task 可以有两种方式使用：
 
 ### 10.1 外部 policy 直接使用 scene
 
 类似 SceneSmith 的 external policy demo：
 
 ```text
-generated scene
+generated placed scene
 + language-conditioned policy
 -> policy executes: pick banana and place it near apple
 ```
@@ -559,7 +561,7 @@ generated scene
 后续可以写一个 RoboTwin task，但这是 scene 之后的下游模块：
 
 ```text
-scene_spec = banana_left_apple_right_v0
+placement_spec = banana_left_apple_right_v0
 task = pick_banana_left_to_right
 ```
 
@@ -568,7 +570,7 @@ task 不需要重新决定 banana/apple 怎么摆；它读取 scene 里的 objec
 也就是说：
 
 ```text
-scene generation first
+placement generation first
 task definition second
 policy/data/eval third
 ```
@@ -579,16 +581,16 @@ policy/data/eval third
 
 ### High priority
 
-- [ ] 定义 TabletopSceneSpec v0。
+- [ ] 定义 TabletopPlacementSpec v0。
 - [ ] 定义 asset catalog sample。
 - [ ] 确认 RoboTwin / rich asset library 中是否有 banana 和 apple。
-- [ ] 写 banana-left apple-right reference SceneSpec。
+- [ ] 写 banana-left apple-right reference PlacementSpec。
 - [ ] 写三个 agent prompts：Designer、Critic、Orchestrator。
-- [ ] 写 SceneSpec validator。
+- [ ] 写 PlacementSpec validator。
 
 ### Medium priority
 
-- [ ] 写 RoboTwin scene loader helper。
+- [ ] 写 RoboTwin placement loader helper。
 - [ ] 跑 banana/apple scene load smoke。
 - [ ] 保存 validation report 和视频。
 - [ ] 写下游 task 消费 scene 的接口说明。
@@ -596,7 +598,7 @@ policy/data/eval third
 ### Lower priority
 
 - [ ] 接入 VLM / embedding 做 asset retrieval。
-- [ ] 生成多种 scene prompt。
+- [ ] 生成多种 placement prompt。
 - [ ] 接入 external policy eval。
 - [ ] 做 success/failure evaluator。
 
@@ -608,8 +610,8 @@ policy/data/eval third
 
 处理方式：
 
-- 文档和 README 明确：项目主输出是 scene。
-- SceneSpec 不包含 `play_once()` / `check_success()`。
+- 文档和 README 明确：项目主输出是 placement spec / placed scene。
+- PlacementSpec 不包含 `play_once()` / `check_success()`。
 - RoboTwin task 是下游消费者，不是当前主目标。
 
 ### Risk 2: asset 语义匹配不准
@@ -641,7 +643,7 @@ policy/data/eval third
 
 处理方式：
 
-- SceneSpec 加 `downstream_task_hints`。
+- PlacementSpec 加 `downstream_task_hints`。
 - 生成时保留 reachability。
 - 用简单 pick-and-place task 做 sanity check。
 

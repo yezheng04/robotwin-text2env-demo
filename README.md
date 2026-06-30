@@ -1,8 +1,8 @@
-# RoboTwin Tabletop Scene Generator
+# RoboTwin Tabletop Placement Agent
 
-SceneSmith-style tabletop scene generation for RoboTwin.
+SceneSmith-style tabletop asset placement for RoboTwin scenes.
 
-This project is being refocused around **simulation-ready tabletop scenes**. The goal is not to generate a new RoboTwin task program directly. The goal is to generate a tabletop scene that a downstream robot task or external policy can use.
+This project focuses on the **placement agent**: given a natural-language tabletop scene description and an asset catalog, decide which assets should appear in the scene and where they should be placed so that the resulting RoboTwin scene is semantically correct, physically valid, and useful for downstream robot tasks or external policies.
 
 Example:
 
@@ -10,8 +10,10 @@ Example:
 Scene request:
   a banana on the left side of the table and an apple on the right side
 
-Generated scene:
-  table + banana placed on the left + apple placed on the right
+Placement output:
+  banana asset -> left tabletop region
+  apple asset -> right tabletop region
+  poses satisfy left/right semantics, table bounds, collision, and stability
 
 Possible downstream RoboTwin task:
   pick the banana from the left side and move it to the right side
@@ -19,28 +21,28 @@ Possible downstream RoboTwin task:
 
 ## What We Are Building
 
-A lightweight SceneSmith-inspired agent loop:
+A lightweight SceneSmith-inspired placement loop:
 
 ```text
 Natural-language scene request
--> Designer agent proposes objects and tabletop layout
+-> Designer agent proposes assets and tabletop placements
 -> Critic agent checks semantic fit and physical/robot usability
--> Orchestrator agent revises and finalizes the scene
--> RoboTwin scene adapter instantiates the scene
+-> Orchestrator agent revises and finalizes the placement spec
+-> RoboTwin adapter instantiates the placed scene
 -> Downstream robot task or external policy runs in the scene
 ```
 
-The asset problem is treated as a library/retrieval problem. Assets are expected to come from a richer asset library; this repo focuses on understanding the scene request, selecting assets, placing them correctly, and validating the scene in RoboTwin.
+The asset problem is treated as a library/retrieval problem. Assets are expected to come from a richer asset library; this repo focuses on semantic grounding, tabletop placement, and validation in RoboTwin.
 
 ## Scope
 
 In scope:
 
-- Generate tabletop scenes from natural language.
+- Parse tabletop placement intent from natural language.
 - Retrieve semantically appropriate assets from an asset catalog.
 - Place assets on the table with meaningful spatial relations.
-- Produce a structured `TabletopSceneSpec`.
-- Instantiate the scene in RoboTwin.
+- Produce a structured `TabletopPlacementSpec`.
+- Instantiate the placed scene in RoboTwin.
 - Validate collision, stability, reachability, camera visibility, and downstream task usability.
 
 Out of scope for this repo:
@@ -76,13 +78,13 @@ On the 5090 machine this points to:
 
 ## Next MVP
 
-Start with simple tabletop scene prompts:
+Start with a simple placement prompt:
 
 ```text
 a banana on the left side of the table and an apple on the right side
 ```
 
-Then instantiate the scene in RoboTwin and verify that it can support a downstream task such as:
+Then instantiate the placed scene in RoboTwin and verify that it can support a downstream task such as:
 
 ```text
 pick the banana from the left side and place it near the apple on the right side
@@ -90,9 +92,9 @@ pick the banana from the left side and place it near the apple on the right side
 
 First deliverables:
 
-- `TabletopSceneSpec` schema.
+- `TabletopPlacementSpec` schema.
 - Asset catalog format.
-- Designer / Critic / Orchestrator prompts.
-- RoboTwin scene adapter.
-- Scene validation report.
-- Smoke video showing the generated scene is physically usable.
+- Designer / Critic / Orchestrator prompts for placement.
+- RoboTwin placement adapter.
+- Placement validation report.
+- Smoke video showing the placed scene is physically usable.
