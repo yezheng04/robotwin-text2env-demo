@@ -92,6 +92,7 @@ pick the banana from the left side and place it near the apple on the right side
 
 First deliverables:
 
+- RoboTwin asset inventory for prompt writing: `robotwin_asset_inventory.md`.
 - `TabletopPlacementSpec` schema.
 - Asset catalog format.
 - Designer / Critic / Orchestrator prompts for placement.
