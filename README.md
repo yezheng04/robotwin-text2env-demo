@@ -121,3 +121,19 @@ First deliverables:
 - RoboTwin placement adapter.
 - Placement validation report.
 - Smoke video showing the placed scene is physically usable.
+
+## One-Command Prompt To Preview
+
+After RoboTwin is installed at `~/RoboTwin`, run:
+
+```bash
+python harness/run_placement_pipeline.py \
+  --prompt "an apple and a plate on the table" \
+  --asset-catalog asset_catalogs/robotwin_tabletop_assets_sample.json \
+  --robotwin-root ~/RoboTwin \
+  --model-provider codex_reference \
+  --out-dir runs/apple_plate_table_harness \
+  --run-smoke
+```
+
+The harness writes Designer, Critic, Orchestrator, validation, smoke, and preview artifacts under the selected `--out-dir`.

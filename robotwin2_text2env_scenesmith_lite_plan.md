@@ -384,7 +384,7 @@ policy = external pick-and-place policy
 
 ### 8.1 必须完成
 
-- [ ] 定义 TabletopPlacementSpec v0。
+- [x] 定义 TabletopPlacementSpec v0：`harness/schemas.py`。
 - [x] 定义 asset catalog entry format，并建立 MVP 小样例：`asset_catalogs/robotwin_tabletop_assets_sample.json`。
 - [x] 选一个简单 placement prompt：an apple and a plate on the table。
 - [x] 准备或指定 apple / plate assets：`035_apple`、`003_plate`。
@@ -395,7 +395,7 @@ policy = external pick-and-place policy
 - [x] 写 Orchestrator prompt：`prompts/orchestrator_prompt.md`。
 - [x] 输出 final static placement：`placements/apple_plate_table/final_placement.json`。
 - [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
-- [ ] 写 PlacementSpec validator。
+- [x] 写 PlacementSpec validator：`harness/schemas.py`。
 - [x] 写 RoboTwin placement loader / smoke runner：`scripts/run_robotwin_placement_smoke.py`。
 - [x] 在 RoboTwin 中加载该 scene。
 - [x] 跑 load / stability / camera smoke。
@@ -797,7 +797,7 @@ local_vlm
 
 ### High priority
 
-- [ ] 定义 TabletopPlacementSpec v0。
+- [x] 定义 TabletopPlacementSpec v0：`harness/schemas.py`。
 - [x] 定义 asset catalog sample：`asset_catalogs/robotwin_tabletop_assets_sample.json`。
 - [x] 选定第一个 placement prompt：an apple and a plate on the table。
 - [x] 确认 RoboTwin 基础资产库中有 apple / plate：`035_apple`、`003_plate`。
@@ -808,10 +808,10 @@ local_vlm
 - [x] 写 Orchestrator prompt：`prompts/orchestrator_prompt.md`。
 - [x] 输出 final static placement：`placements/apple_plate_table/final_placement.json`。
 - [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
-- [ ] 写 PlacementSpec validator。
-- [ ] 设计 MCP-lite / CLI tool interface：asset、validation、smoke、render、visual review。
-- [ ] 把 Designer / Critic / Orchestrator prompts 迁移成 skill 初版。
-- [ ] 写 harness/run_placement_pipeline.py，一条命令从 prompt 跑到 preview。
+- [x] 写 PlacementSpec validator：`harness/schemas.py`。
+- [x] 设计 MCP-lite / CLI tool interface：`mcp_lite/tools.py`，包含 asset、validation、smoke、render artifact、visual review。
+- [x] 把 Designer / Critic / Orchestrator prompts 迁移成 skill 初版：`skills/robotwin-placement-*`。
+- [x] 写 harness/run_placement_pipeline.py，一条命令从 prompt 跑到 preview：`harness/run_placement_pipeline.py`。
 
 ### Medium priority
 

@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+"""Reference model-provider layer for the placement harness."""
+
+from __future__ import annotations
+
+import copy
+from datetime import date
+from typing import Any
+
+
+DEFAULT_WORKSPACE = {
+    "surface": "table",
+    "coordinate_convention": "tabletop_local; x is left/right across the table, y is front/back on the table, z is height; the RoboTwin adapter maps this frame into the simulator task frame",
+    "bounds": {"x": [-0.45, 0.45], "y": [-0.35, 0.25], "z": [0.74, 1.1]},
+    "spatial_regions": {
+        "left_reachable_area": {
+            "x": [-0.24, -0.06],
+            "y": [-0.16, 0.08],
+            "purpose": "reachable free tabletop area for the first mentioned object",
+        },
+        "right_reachable_area": {
+            "x": [0.08, 0.30],
+            "y": [-0.16, 0.08],
+            "purpose": "reachable tabletop area for the second mentioned object",
+        },
+        "center_clearance_area": {
+            "x": [-0.05, 0.07],
+            "y": [-0.20, 0.12],
+            "purpose": "free corridor for downstream manipulation",
+        },
+    },
+}
+
+
+def _entries_by_prompt_order(prompt: str, catalog: dict[str, Any]) -> list[dict[str, Any]]:
+    prompt_lower = prompt.lower()
+    matches: list[tuple[int, dict[str, Any]]] = []
+    for entry in catalog.get("entries", []):
+        aliases = [entry.get("semantic_name", ""), *entry.get("aliases", []), *entry.get("tags", [])]
+        positions = [prompt_lower.find(str(alias).lower()) for alias in aliases if str(alias).lower() in prompt_lower]
+        if positions:
+            matches.append((min(positions), entry))
+    return [entry for _pos, entry in sorted(matches, key=lambda item: item[0])]
+
+
+def _metadata_for_default_model(entry: dict[str, Any]) -> dict[str, Any]:
+    model_id = entry.get("default_model_id", 0)
+    for metadata in entry.get("model_metadata", []):
+        if metadata.get("model_id") == model_id:
+            return metadata
+    return {}
+
+
+def design_initial_spec(
+    *,
+    prompt: str,
+    catalog: dict[str, Any],
+    asset_catalog_path: str,
+    model_provider: str = "codex_reference",
+) -> dict[str, Any]:
+    """Create a deterministic reference Designer output.
+
+    This provider is intentionally simple: it produces reproducible reference
+    artifacts while leaving the same function boundary available for future LLM
+    API providers.
+    """
+
+    selected = _entries_by_prompt_order(prompt, catalog)
+    if not selected:
+        raise ValueError(f"No catalog assets matched prompt: {prompt}")
+
+    regions = ["left_reachable_area", "right_reachable_area"]
+    poses = [[-0.15, -0.04, 0.76], [0.18, -0.04, 0.755]]
+    objects = []
+    for idx, entry in enumerate(selected):
+        model_id = entry.get("default_model_id", 0)
+        metadata = _metadata_for_default_model(entry)
+        semantic = entry.get("semantic_name", entry["asset_id"])
+        role_candidates = entry.get("placement_affordances", {}).get("role_candidates", ["scene_object"])
+        region = regions[min(idx, len(regions) - 1)]
+        xyz = poses[min(idx, len(poses) - 1)]
+        qpos = [1, 0, 0, 0]
+        if entry["asset_id"] == "003_plate":
+            qpos = [0.5, 0.5, 0.5, 0.5]
+        objects.append(
+            {
+                "id": f"{semantic}_1",
+                "semantic": semantic,
+                "asset_id": entry["asset_id"],
+                "model_id": model_id,
+                "role": role_candidates[0],
+                "pose": {"region": region, "xyz": xyz, "qpos": qpos, "z_policy": "snap_to_tabletop_on_load"},
+                "physical": {"is_static": False, "collision": True, "stable_on_table": True},
+                "asset_metadata": {
+                    "approx_scaled_extents_m": metadata.get("approx_scaled_extents_m"),
+                    "graspable": entry.get("placement_affordances", {}).get("graspable", False),
+                    "support_surface_candidate": entry.get("placement_affordances", {}).get("support_surface_candidate", False),
+                },
+                "affordance_notes": [],
+            }
+        )
+
+    relations = [
+        {"type": "on_surface", "subject": obj["id"], "object": "table", "status": "designed"}
+        for obj in objects
+    ]
+    if len(objects) >= 2:
+        relations.append(
+            {
+                "type": "separated_initially",
+                "subject": objects[0]["id"],
+                "object": objects[1]["id"],
+                "minimum_center_distance_m": 0.28,
+                "status": "designed",
+            }
+        )
+
+    workspace = copy.deepcopy(DEFAULT_WORKSPACE)
+    return {
+        "schema_version": "robotwin.tabletop_placement.v0",
+        "placement_name": "_".join([obj["semantic"] for obj in objects]) + "_table_designer_initial_v0",
+        "stage": "designer_initial",
+        "language_prompt": prompt,
+        "asset_catalog_path": asset_catalog_path,
+        "generated_by": {
+            "agent": "designer",
+            "model_backend": model_provider,
+            "prompt_template": "skills/robotwin-placement-designer/SKILL.md",
+            "generated_at": date.today().isoformat(),
+        },
+        "workspace": workspace,
+        "objects": objects,
+        "relations": relations,
+        "constraints": [
+            "use_only_catalog_assets",
+            "objects_on_table",
+            "no_initial_collision",
+            "keep_robot_reachable",
+            "keep_camera_visible",
+            "do_not_generate_task_program",
+        ],
+        "downstream_task_hints": ["the placed scene can be consumed by a downstream manipulation task"],
+        "validation": {
+            "semantic_check": "pending_designer_initial",
+            "asset_check": "pending_designer_initial",
+            "bounds_check": "pending_designer_initial",
+            "collision_check": "pending_designer_initial",
+            "stability_check": "pending_designer_initial",
+            "robotwin_load_check": "pending_designer_initial",
+        },
+        "designer_notes": [
+            "codex_reference is a deterministic reference provider, not a live LLM call.",
+            "Future providers should keep the same output schema and validation gate.",
+        ],
+    }
+
+
+def critic_review_from_validation(
+    *,
+    placement: dict[str, Any],
+    validation_report: dict[str, Any],
+    model_provider: str = "codex_reference",
+) -> dict[str, Any]:
+    verdict = "accept_for_next_stage" if validation_report["status"] == "pass" else "repair_required"
+    return {
+        "schema_version": "robotwin.tabletop_placement_critic.v0",
+        "review_name": f"{placement.get('placement_name', 'placement')}_critic_review_v0",
+        "stage": "critic_static_review",
+        "reviewed_placement": placement.get("placement_name"),
+        "generated_by": {
+            "agent": "critic",
+            "model_backend": model_provider,
+            "prompt_template": "skills/robotwin-placement-critic/SKILL.md",
+            "generated_at": date.today().isoformat(),
+        },
+        "verdict": verdict,
+        "summary": "Static validation passed; proceed to simulator smoke." if verdict == "accept_for_next_stage" else "Static validation found failures; repair before smoke.",
+        "checks": validation_report["checks"],
+        "issues": [check for check in validation_report["checks"] if check["status"] in ["fail", "warning"]],
+        "repair_suggestions": [],
+        "next_stage_requirements": ["Run RoboTwin smoke render and inspect the saved preview image/video."],
+    }
+
+
+def orchestrate_final_spec(
+    *,
+    designer_spec: dict[str, Any],
+    critic_review: dict[str, Any],
+    model_provider: str = "codex_reference",
+) -> dict[str, Any]:
+    final_spec = copy.deepcopy(designer_spec)
+    final_spec["placement_name"] = designer_spec["placement_name"].replace("designer_initial", "final_static")
+    final_spec["stage"] = "final_static_for_smoke"
+    final_spec["source_designer_placement"] = "designer_initial_placement.json"
+    final_spec["source_critic_review"] = "critic_review.json"
+    final_spec["generated_by"] = {
+        "agent": "orchestrator",
+        "model_backend": model_provider,
+        "prompt_template": "skills/robotwin-placement-orchestrator/SKILL.md",
+        "generated_at": date.today().isoformat(),
+    }
+    accepted = critic_review.get("verdict") == "accept_for_next_stage"
+    final_spec["orchestrator_decision"] = {
+        "decision": "accept_for_smoke" if accepted else "repair_designer",
+        "reason": "Critic accepted the static placement." if accepted else "Critic found static issues.",
+        "remaining_uncertainties": [
+            "Exact simulator contact must be confirmed by RoboTwin smoke.",
+            "Camera visibility must be confirmed by render evidence.",
+        ],
+    }
+    final_spec["validation"] = {
+        "semantic_check": "pass_static" if accepted else "repair_required",
+        "asset_check": "pass_static" if accepted else "repair_required",
+        "bounds_check": "pass_static" if accepted else "repair_required",
+        "approx_collision_check": "pass_static" if accepted else "repair_required",
+        "stability_metadata_check": "pass_static" if accepted else "repair_required",
+        "robotwin_load_check": "pending_simulator_smoke",
+        "render_visibility": "pending_render_review",
+        "simulator_stability": "pending_simulator_smoke",
+    }
+    return final_spec
+
+
+def validation_plan_for(final_spec: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "robotwin.tabletop_validation_plan.v0",
+        "plan_name": f"{final_spec.get('placement_name', 'placement')}_validation_plan",
+        "stage": "orchestrator_validation_plan",
+        "target_placement": "final_placement.json",
+        "language_prompt": final_spec.get("language_prompt"),
+        "static_checks": ["schema", "asset_exists", "model_id_exists", "pose_in_workspace_bounds", "approx_no_initial_collision"],
+        "simulator_smoke_checks": ["robotwin_scene_load", "settling_stability", "save_head_and_observer_camera"],
+        "render_or_visual_checks": ["object_visibility", "visual_prompt_match", "floating_or_penetration_failure_modes"],
+        "pass_criteria": [
+            "Static validation passes.",
+            "RoboTwin smoke exits PASS.",
+            "Preview image/video visibly contains the requested tabletop objects.",
+        ],
+    }
