@@ -141,6 +141,7 @@ def main() -> int:
                     self,
                     pose=sapien.Pose(xyz, qpos),
                     modelname=obj["asset_id"],
+                    scale=obj.get("asset_metadata", {}).get("scale", (1, 1, 1)) or (1, 1, 1),
                     model_id=obj.get("model_id", 0),
                     convex=True,
                     is_static=obj.get("physical", {}).get("is_static", False),
@@ -224,7 +225,7 @@ def main() -> int:
                 "pose_delta_norm_m": max_pose_delta,
                 "notes": [
                     "Objects were loaded from RoboTwin assets through create_actor.",
-                    "003_plate uses the same orientation convention as RoboTwin place_container_plate.",
+                    "Object-specific scale and pose metadata are read from the placement spec when provided.",
                     "This smoke confirms load/render evidence; human or VLM visual review should inspect the saved image/video.",
                 ],
             }

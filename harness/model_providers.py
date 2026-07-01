@@ -82,19 +82,27 @@ def design_initial_spec(
         qpos = [1, 0, 0, 0]
         if entry["asset_id"] == "003_plate":
             qpos = [0.5, 0.5, 0.5, 0.5]
+        affordances = entry.get("placement_affordances", {})
+        role = role_candidates[0]
+        is_static_background = role in {"container_candidate", "support_or_target_candidate"} or affordances.get("support_surface_candidate", False)
         objects.append(
             {
                 "id": f"{semantic}_1",
                 "semantic": semantic,
                 "asset_id": entry["asset_id"],
                 "model_id": model_id,
-                "role": role_candidates[0],
+                "role": role,
                 "pose": {"region": region, "xyz": xyz, "qpos": qpos, "z_policy": "snap_to_tabletop_on_load"},
-                "physical": {"is_static": False, "collision": True, "stable_on_table": True},
+                "physical": {
+                    "is_static": is_static_background,
+                    "collision": True,
+                    "stable_on_table": affordances.get("stable_on_table", False),
+                },
                 "asset_metadata": {
                     "approx_scaled_extents_m": metadata.get("approx_scaled_extents_m"),
-                    "graspable": entry.get("placement_affordances", {}).get("graspable", False),
-                    "support_surface_candidate": entry.get("placement_affordances", {}).get("support_surface_candidate", False),
+                    "scale": metadata.get("scale"),
+                    "graspable": affordances.get("graspable", False),
+                    "support_surface_candidate": affordances.get("support_surface_candidate", False),
                 },
                 "affordance_notes": [],
             }
