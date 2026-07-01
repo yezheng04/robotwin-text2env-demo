@@ -796,6 +796,29 @@ local_vlm
 
 这样别人复现时可以先用 `codex_reference` 或 mock/reference artifact，不需要马上配置模型 API；之后再替换成 Qwen、OpenAI、Claude 或本地 VLM。
 
+### 11.7 Skill lessons 回写规则
+
+每次跑新的 placement prompt 后，如果发现任何新坑，都必须回写到 skill，不只是修代码：
+
+```text
+1. prompt 语义坑 -> skills/design-tabletop-placement
+2. asset / loader / qpos / scale 坑 -> skills/ground-objects-to-robotwin-assets
+3. static validator 漏检 -> skills/critique-tabletop-placement
+4. visual/VLM 判别坑 -> skills/review-robotwin-smoke-preview
+5. pipeline 状态、repair、rerun 规则 -> skills/orchestrate-placement-pipeline
+```
+
+一次 run 的完整收尾标准：
+
+```text
+code/catalog 修复
+smoke 或 pending visual gate 验证
+visual review 记录
+preview 小文件保存
+相关 skill lessons 更新
+GitHub 同步
+```
+
 ---
 
 ## 12. 当前 TODO
