@@ -689,7 +689,18 @@ visual_review(image_or_video, prompt)
 
 Skill 负责固定 agent 的行为规范，不绑定具体模型。
 
-建议 skills：
+当前采用一个顶层 handoff skill 加多个 focused skill 的结构。顶层 skill 用来给另一个 Codex / agent 复现完整流程，focused skill 负责具体能力。
+
+顶层 skill：
+
+```text
+generate-robotwin-tabletop-scene
+  输入新的 placement prompt + asset catalog / RoboTwin path
+  调度 asset grounding、Designer、Critic、Orchestrator、smoke、visual review、repair、lesson 回写
+  输出可验收的 RoboTwin tabletop scene preview 或明确 blocker
+```
+
+focused skills：
 
 ```text
 design-tabletop-placement
@@ -709,7 +720,9 @@ review-robotwin-smoke-preview
   跑 smoke，保存图片/视频，写 visual review
 ```
 
-现有的 `prompts/designer_prompt.md`、`prompts/critic_prompt.md`、`prompts/orchestrator_prompt.md` 可以迁移成 skill 初版。
+当前顶层入口已经放在 `skills/generate-robotwin-tabletop-scene/`。另一个 agent 不需要复现我们手工探索过的每一步，只需要拿到 repo、确认 RoboTwin 在 `~/RoboTwin`，然后从这个 skill 开始处理新的自然语言 prompt。
+
+现有的 `prompts/designer_prompt.md`、`prompts/critic_prompt.md`、`prompts/orchestrator_prompt.md` 已迁移成 focused skill 初版，并保留中文版 `SKILL.zh-CN.md` 方便中文协作。
 
 ### 11.4 Harness 层
 
@@ -749,6 +762,9 @@ mcp/
     render.py
 
 skills/
+  generate-robotwin-tabletop-scene/SKILL.md
+  generate-robotwin-tabletop-scene/SKILL.zh-CN.md
+  generate-robotwin-tabletop-scene/references/
   design-tabletop-placement/SKILL.md
   design-tabletop-placement/SKILL.zh-CN.md
   critique-tabletop-placement/SKILL.md
@@ -780,7 +796,8 @@ reports/
 2. 把 run_robotwin_placement_smoke.py 封装成可复用 smoke tool。
 3. 写 Designer / Critic / Orchestrator / Smoke Review skill 初版。
 4. 写 harness/run_placement_pipeline.py，一条命令复现 apple/plate。
-5. 再把 CLI tools 包成 MCP tools。
+5. 写 `generate-robotwin-tabletop-scene` 顶层 handoff skill，让另一个 agent 能从新 prompt 跑完整流程。
+6. 再把 CLI tools 包成 MCP tools。
 ```
 
 模型后端要保持可替换：
@@ -806,6 +823,7 @@ local_vlm
 3. static validator 漏检 -> skills/critique-tabletop-placement
 4. visual/VLM 判别坑 -> skills/review-robotwin-smoke-preview
 5. pipeline 状态、repair、rerun 规则 -> skills/orchestrate-placement-pipeline
+6. 新 prompt 的端到端经验 -> skills/generate-robotwin-tabletop-scene/references/known-pitfalls.md
 ```
 
 一次 run 的完整收尾标准：
@@ -840,6 +858,7 @@ GitHub 同步
 - [x] 设计 MCP-lite / CLI tool interface：`mcp_lite/tools.py`，包含 asset、validation、smoke、render artifact、visual review。
 - [x] 把 Designer / Critic / Orchestrator prompts 迁移成 skill 初版：`skills/design-tabletop-placement`、`skills/critique-tabletop-placement`、`skills/orchestrate-placement-pipeline`。
 - [x] 写 harness/run_placement_pipeline.py，一条命令从 prompt 跑到 preview：`harness/run_placement_pipeline.py`。
+- [x] 写顶层 handoff skill：`skills/generate-robotwin-tabletop-scene`，用于让另一个 agent 从新 prompt 跑完整 scene generation 流程。
 
 ### Medium priority
 

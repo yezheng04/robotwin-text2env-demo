@@ -1,0 +1,51 @@
+# 生成 RoboTwin 桌面场景
+
+这个 skill 是新 prompt 的总入口：把一句自然语言桌面摆放描述转换成 RoboTwin scene preview，并通过 static validation、smoke render、visual/VLM review 逐级验收。
+
+它协调这些项目组件：
+
+- `harness/`：prompt-to-placement pipeline。
+- `mcp_lite/`：validation、smoke、artifact、visual-review 工具。
+- `scripts/run_robotwin_placement_smoke.py`：真正把场景加载到 RoboTwin 并渲染 preview。
+- `asset_catalogs/`：prompt 相关 asset metadata 和 placement defaults。
+- `skills/` 下的细分 skill：Designer、Critic、Orchestrator、asset grounding、smoke review。
+
+前提：agent 在 `robotwin-text2env-demo` repo 中工作，用户已经有 RoboTwin 环境，例如 `~/RoboTwin`。如果缺少 repo 组件，应先让用户提供 repo 或 clone GitHub repo。
+
+## 必须流程
+
+1. 读取用户 prompt，识别物体和空间关系。
+2. 查找或创建对应 asset catalog。
+3. 先跑 static pipeline。
+4. 用 `--run-smoke` 跑 RoboTwin smoke。
+5. 用人工、Codex visual reference 或外部 VLM 检查 preview。
+6. 如果视觉审核失败，修 catalog defaults 或 placement logic，然后重新跑。
+7. 只有 static validation、smoke、明确 visual review 全部通过，才能标记完整 pass。
+8. 每次发现新坑，都要回写到对应 skill 和 asset catalog。
+
+## 参考文件
+
+按需读取：
+
+- `references/new-prompt-workflow.md`：端到端命令和输出 artifact。
+- `references/asset-catalog-rules.md`：如何创建 catalog，如何处理 rigid/articulated 资产。
+- `references/visual-review-gate.md`：如何判断 pass/pending/fail，如何写 visual review JSON。
+- `references/known-pitfalls.md`：apple/plate、vegetable/basket、laptop/knife 中踩过的坑。
+
+## 状态规则
+
+- `PASS_STATIC_ONLY`：只通过静态 JSON/catalog 检查，还没有 RoboTwin render。
+- `REVIEW_REQUIRED` / `pending_visual_review`：smoke 已渲染，但还没有通过视觉报告。
+- `PASS`：static validation、smoke 和明确视觉审核报告全部通过。
+- `FAIL`：static validation、smoke 或 visual review 失败。
+
+不要把 smoke success 当作 visual success。
+
+## 关键约束
+
+- 不要编造 RoboTwin asset id 或 model id。
+- 不要按物体出现顺序判断空间关系。
+- 没有视觉审核，不要标记 pass。
+- 不要提交 HDF5、完整 `runs/`、checkpoints 或 RoboTwin assets。
+- 可以保留小 preview evidence 和 prompt-specific catalog。
+- 每次新 prompt 后都要更新 skill lessons。

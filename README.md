@@ -46,6 +46,26 @@ Skills define how Designer / Critic / Orchestrator should reason
 
 This keeps agent roles independent from the model backend. The same workflow should later work with Codex reference outputs, OpenAI API models, Qwen, Claude, or local vLLM/VLM backends.
 
+## Agent Handoff Skill
+
+For another Codex or agent to reproduce a new prompt-to-scene run, start from the top-level skill:
+
+```text
+skills/generate-robotwin-tabletop-scene/
+```
+
+That skill is the handoff entry point. It tells the agent how to parse a new placement prompt, ground objects to assets, run the harness, require RoboTwin smoke evidence, require visual/VLM review before calling a scene passed, repair failures, and write newly discovered pitfalls back into the focused skills.
+
+The focused skills remain available for individual capabilities:
+
+```text
+skills/design-tabletop-placement/
+skills/critique-tabletop-placement/
+skills/orchestrate-placement-pipeline/
+skills/ground-objects-to-robotwin-assets/
+skills/review-robotwin-smoke-preview/
+```
+
 ## Scope
 
 In scope:
