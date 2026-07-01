@@ -34,6 +34,18 @@ Natural-language scene request
 
 The asset problem is treated as a library/retrieval problem. Assets are expected to come from a richer asset library; this repo focuses on semantic grounding, tabletop placement, and validation in RoboTwin.
 
+## Planned System Direction
+
+The next system-level goal is to turn the current prompt-and-script demo into an MCP + skill + harness workflow:
+
+```text
+Skills define how Designer / Critic / Orchestrator should reason
+-> MCP tools expose RoboTwin asset, validation, smoke, and render functions
+-> Harness runner executes the full reproducible pipeline from prompt to preview
+```
+
+This keeps agent roles independent from the model backend. The same workflow should later work with Codex reference outputs, OpenAI API models, Qwen, Claude, or local vLLM/VLM backends.
+
 ## Scope
 
 In scope:

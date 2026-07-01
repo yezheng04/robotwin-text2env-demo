@@ -655,7 +655,145 @@ policy/data/eval third
 
 ---
 
-## 11. 当前 TODO
+## 11. MCP + Skill + Harness 系统化方向
+
+博士生提出的方向是：把当前 demo 做成一个 **MCP + skill + harness** 系统。这个方向是合理的，因为我们现在已经有了 prompt、PlacementSpec、RoboTwin smoke runner、图片/视频结果；下一步应该把它们从“手工串联 demo”升级成“可复现 agentic placement harness”。
+
+### 11.1 三层设计
+
+```text
+Skill = 教 agent 怎么做
+MCP = 给 agent 稳定可调用的 RoboTwin 工具
+Harness = 把完整流程固定成可复现 pipeline
+```
+
+### 11.2 MCP tools 层
+
+目标是做一个 `robotwin-placement-mcp`，把 RoboTwin 相关能力封装成工具，避免 agent 直接乱翻目录或手写临时 shell。
+
+建议工具：
+
+```text
+list_assets()
+get_asset_metadata(asset_id)
+validate_placement_spec(spec)
+run_robotwin_smoke(spec)
+render_scene(spec)
+get_smoke_artifacts(run_id)
+visual_review(image_or_video, prompt)
+```
+
+当前已有的 `scripts/run_robotwin_placement_smoke.py` 可以作为 `run_robotwin_smoke(spec)` 的原型。
+
+### 11.3 Skill 层
+
+Skill 负责固定 agent 的行为规范，不绑定具体模型。
+
+建议 skills：
+
+```text
+robotwin-placement-designer
+  输入 placement prompt + asset catalog
+  输出 initial PlacementSpec
+
+robotwin-placement-critic
+  检查 semantic match、asset availability、bounds、collision/stability、render evidence
+
+robotwin-placement-orchestrator
+  根据 critic 结果决定 accept / repair / rerun
+
+robotwin-asset-grounding
+  把自然语言 object 映射到 RoboTwin 或 rich asset library asset_id
+
+robotwin-smoke-review
+  跑 smoke，保存图片/视频，写 visual review
+```
+
+现有的 `prompts/designer_prompt.md`、`prompts/critic_prompt.md`、`prompts/orchestrator_prompt.md` 可以迁移成 skill 初版。
+
+### 11.4 Harness 层
+
+Harness 是端到端 runner，目标是一条命令从自然语言跑到 scene preview：
+
+```bash
+python harness/run_placement_pipeline.py \
+  --prompt "an apple and a plate on the table" \
+  --asset-catalog asset_catalogs/robotwin_tabletop_assets_sample.json \
+  --robotwin-root ~/RoboTwin \
+  --model-provider codex_reference \
+  --out-dir runs/apple_plate_table
+```
+
+固定流程：
+
+```text
+1. asset grounding
+2. Designer 生成 initial PlacementSpec
+3. schema/static validation
+4. Critic review
+5. Orchestrator 输出 final placement
+6. RoboTwin smoke render
+7. visual critic / human review
+8. 生成 report
+```
+
+### 11.5 推荐目录结构
+
+```text
+mcp/
+  robotwin_placement_server.py
+  tools/
+    assets.py
+    validation.py
+    smoke.py
+    render.py
+
+skills/
+  robotwin-placement-designer/SKILL.md
+  robotwin-placement-critic/SKILL.md
+  robotwin-placement-orchestrator/SKILL.md
+  robotwin-asset-grounding/SKILL.md
+  robotwin-smoke-review/SKILL.md
+
+harness/
+  run_placement_pipeline.py
+  model_providers.py
+  schemas.py
+
+asset_catalogs/
+placements/
+previews/
+reports/
+```
+
+### 11.6 最小交付顺序
+
+第一阶段不要一口气做全 MCP server。先做 MCP-lite / CLI harness：
+
+```text
+1. 抽出 PlacementSpec validator。
+2. 把 run_robotwin_placement_smoke.py 封装成可复用 smoke tool。
+3. 写 Designer / Critic / Orchestrator / Smoke Review skill 初版。
+4. 写 harness/run_placement_pipeline.py，一条命令复现 apple/plate。
+5. 再把 CLI tools 包成 MCP tools。
+```
+
+模型后端要保持可替换：
+
+```text
+codex_reference
+openai_api
+qwen_api
+claude_api
+local_vllm
+local_vlm
+```
+
+这样别人复现时可以先用 `codex_reference` 或 mock/reference artifact，不需要马上配置模型 API；之后再替换成 Qwen、OpenAI、Claude 或本地 VLM。
+
+---
+
+## 12. 当前 TODO
 
 ### High priority
 
@@ -671,6 +809,9 @@ policy/data/eval third
 - [x] 输出 final static placement：`placements/apple_plate_table/final_placement.json`。
 - [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
 - [ ] 写 PlacementSpec validator。
+- [ ] 设计 MCP-lite / CLI tool interface：asset、validation、smoke、render、visual review。
+- [ ] 把 Designer / Critic / Orchestrator prompts 迁移成 skill 初版。
+- [ ] 写 harness/run_placement_pipeline.py，一条命令从 prompt 跑到 preview。
 
 ### Medium priority
 
@@ -685,10 +826,12 @@ policy/data/eval third
 - [ ] 生成多种 placement prompt。
 - [ ] 接入 external policy eval。
 - [ ] 做 success/failure evaluator。
+- [ ] 把 CLI harness 包装成正式 MCP server。
+- [ ] 接入 Qwen / OpenAI / Claude / local vLLM backend。
 
 ---
 
-## 12. 风险和判断
+## 13. 风险和判断
 
 ### Risk 1: 又滑回 task generation
 
@@ -731,9 +874,18 @@ policy/data/eval third
 - 生成时保留 reachability。
 - 用简单 pick-and-place task 做 sanity check。
 
+### Risk 6: MCP / skill / harness 过早复杂化
+
+处理方式：
+
+- 先做 CLI harness，再包 MCP。
+- 先用 reference artifacts / mock provider，再接真实模型 API。
+- 每个 tool 都要求有输入 schema、输出 schema 和最小测试。
+- 不把 RoboTwin 大资产、data、logs、HDF5 纳入 repo。
+
 ---
 
-## 13. 远程环境状态
+## 14. 远程环境状态
 
 默认远程路径：
 
@@ -751,7 +903,7 @@ VS Code Remote 注意：
 
 ---
 
-## 14. References
+## 15. References
 
 - SceneSmith project page: https://scenesmith.github.io/
 - SceneSmith repo: https://github.com/nepfaff/scenesmith
