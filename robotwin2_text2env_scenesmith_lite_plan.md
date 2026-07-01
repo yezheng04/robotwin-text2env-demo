@@ -692,20 +692,20 @@ Skill 负责固定 agent 的行为规范，不绑定具体模型。
 建议 skills：
 
 ```text
-robotwin-placement-designer
+design-tabletop-placement
   输入 placement prompt + asset catalog
   输出 initial PlacementSpec
 
-robotwin-placement-critic
+critique-tabletop-placement
   检查 semantic match、asset availability、bounds、collision/stability、render evidence
 
-robotwin-placement-orchestrator
+orchestrate-placement-pipeline
   根据 critic 结果决定 accept / repair / rerun
 
-robotwin-asset-grounding
+ground-objects-to-robotwin-assets
   把自然语言 object 映射到 RoboTwin 或 rich asset library asset_id
 
-robotwin-smoke-review
+review-robotwin-smoke-preview
   跑 smoke，保存图片/视频，写 visual review
 ```
 
@@ -749,11 +749,16 @@ mcp/
     render.py
 
 skills/
-  robotwin-placement-designer/SKILL.md
-  robotwin-placement-critic/SKILL.md
-  robotwin-placement-orchestrator/SKILL.md
-  robotwin-asset-grounding/SKILL.md
-  robotwin-smoke-review/SKILL.md
+  design-tabletop-placement/SKILL.md
+  design-tabletop-placement/SKILL.zh-CN.md
+  critique-tabletop-placement/SKILL.md
+  critique-tabletop-placement/SKILL.zh-CN.md
+  orchestrate-placement-pipeline/SKILL.md
+  orchestrate-placement-pipeline/SKILL.zh-CN.md
+  ground-objects-to-robotwin-assets/SKILL.md
+  ground-objects-to-robotwin-assets/SKILL.zh-CN.md
+  review-robotwin-smoke-preview/SKILL.md
+  review-robotwin-smoke-preview/SKILL.zh-CN.md
 
 harness/
   run_placement_pipeline.py
@@ -810,7 +815,7 @@ local_vlm
 - [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
 - [x] 写 PlacementSpec validator：`harness/schemas.py`。
 - [x] 设计 MCP-lite / CLI tool interface：`mcp_lite/tools.py`，包含 asset、validation、smoke、render artifact、visual review。
-- [x] 把 Designer / Critic / Orchestrator prompts 迁移成 skill 初版：`skills/robotwin-placement-*`。
+- [x] 把 Designer / Critic / Orchestrator prompts 迁移成 skill 初版：`skills/design-tabletop-placement`、`skills/critique-tabletop-placement`、`skills/orchestrate-placement-pipeline`。
 - [x] 写 harness/run_placement_pipeline.py，一条命令从 prompt 跑到 preview：`harness/run_placement_pipeline.py`。
 
 ### Medium priority

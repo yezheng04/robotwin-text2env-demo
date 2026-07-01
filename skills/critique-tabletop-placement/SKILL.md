@@ -1,6 +1,6 @@
-# RoboTwin Placement Critic
+# Critique Tabletop Placement
 
-Use this skill when reviewing a Designer-generated `TabletopPlacementSpec`.
+Use this skill when reviewing a Designer-generated `TabletopPlacementSpec`. In the agent loop, this is the Critic capability.
 
 ## Scope
 

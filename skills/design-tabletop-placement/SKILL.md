@@ -1,6 +1,6 @@
-# RoboTwin Placement Designer
+# Design Tabletop Placement
 
-Use this skill when turning a natural-language tabletop scene request into an initial `TabletopPlacementSpec`.
+Use this skill when turning a natural-language tabletop scene request into an initial `TabletopPlacementSpec`. In the agent loop, this is the Designer capability.
 
 ## Inputs
 

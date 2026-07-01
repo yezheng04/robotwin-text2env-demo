@@ -125,7 +125,7 @@ def design_initial_spec(
         "generated_by": {
             "agent": "designer",
             "model_backend": model_provider,
-            "prompt_template": "skills/robotwin-placement-designer/SKILL.md",
+            "prompt_template": "skills/design-tabletop-placement/SKILL.md",
             "generated_at": date.today().isoformat(),
         },
         "workspace": workspace,
@@ -170,7 +170,7 @@ def critic_review_from_validation(
         "generated_by": {
             "agent": "critic",
             "model_backend": model_provider,
-            "prompt_template": "skills/robotwin-placement-critic/SKILL.md",
+            "prompt_template": "skills/critique-tabletop-placement/SKILL.md",
             "generated_at": date.today().isoformat(),
         },
         "verdict": verdict,
@@ -196,7 +196,7 @@ def orchestrate_final_spec(
     final_spec["generated_by"] = {
         "agent": "orchestrator",
         "model_backend": model_provider,
-        "prompt_template": "skills/robotwin-placement-orchestrator/SKILL.md",
+        "prompt_template": "skills/orchestrate-placement-pipeline/SKILL.md",
         "generated_at": date.today().isoformat(),
     }
     accepted = critic_review.get("verdict") == "accept_for_next_stage"

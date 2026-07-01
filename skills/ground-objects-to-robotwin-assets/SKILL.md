@@ -1,4 +1,4 @@
-# RoboTwin Asset Grounding
+# Ground Objects To RoboTwin Assets
 
 Use this skill when mapping natural-language object mentions to RoboTwin asset catalog entries.
 

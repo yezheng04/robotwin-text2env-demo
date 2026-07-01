@@ -1,6 +1,6 @@
-# RoboTwin Placement Orchestrator
+# Orchestrate Placement Pipeline
 
-Use this skill when combining Designer output, Critic review, and validation results into the next pipeline artifact.
+Use this skill when combining Designer output, Critic review, and validation results into the next pipeline artifact. In the agent loop, this is the Orchestrator capability.
 
 ## Rules
 

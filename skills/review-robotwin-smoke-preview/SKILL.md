@@ -1,4 +1,4 @@
-# RoboTwin Smoke Review
+# Review RoboTwin Smoke Preview
 
 Use this skill when checking RoboTwin smoke outputs from a placement run.
 
