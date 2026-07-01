@@ -43,6 +43,56 @@ def _entries_by_prompt_order(prompt: str, catalog: dict[str, Any]) -> list[dict[
     return [entry for _pos, entry in sorted(matches, key=lambda item: item[0])]
 
 
+def _entry_terms(entry: dict[str, Any]) -> list[str]:
+    terms = [entry.get("semantic_name", ""), *entry.get("aliases", [])]
+    unique = []
+    for term in terms:
+        term = str(term).lower().strip()
+        if term and term not in unique:
+            unique.append(term)
+    return sorted(unique, key=len, reverse=True)
+
+
+def _relation_text(text: str) -> str:
+    words = [word for word in text.lower().split() if word not in {"a", "an", "the"}]
+    return " ".join(words)
+
+
+def _find_lateral_relation(prompt: str, entries: list[dict[str, Any]]) -> dict[str, Any] | None:
+    prompt_lower = _relation_text(prompt)
+    for subject in entries:
+        for reference in entries:
+            if subject["asset_id"] == reference["asset_id"]:
+                continue
+            for subject_term in _entry_terms(subject):
+                for reference_term in _entry_terms(reference):
+                    subject_term = _relation_text(subject_term)
+                    reference_term = _relation_text(reference_term)
+                    right_patterns = [
+                        f"{subject_term} is on right side of {reference_term}",
+                        f"{subject_term} is to right of {reference_term}",
+                        f"{subject_term} on right side of {reference_term}",
+                    ]
+                    left_patterns = [
+                        f"{subject_term} is on left side of {reference_term}",
+                        f"{subject_term} is to left of {reference_term}",
+                        f"{subject_term} on left side of {reference_term}",
+                    ]
+                    if any(pattern in prompt_lower for pattern in right_patterns):
+                        return {
+                            "type": "right_of",
+                            "subject_asset_id": subject["asset_id"],
+                            "object_asset_id": reference["asset_id"],
+                        }
+                    if any(pattern in prompt_lower for pattern in left_patterns):
+                        return {
+                            "type": "left_of",
+                            "subject_asset_id": subject["asset_id"],
+                            "object_asset_id": reference["asset_id"],
+                        }
+    return None
+
+
 def _metadata_for_default_model(entry: dict[str, Any]) -> dict[str, Any]:
     model_id = entry.get("default_model_id", 0)
     for metadata in entry.get("model_metadata", []):
@@ -71,14 +121,27 @@ def design_initial_spec(
 
     regions = ["left_reachable_area", "right_reachable_area"]
     poses = [[-0.15, -0.04, 0.76], [0.18, -0.04, 0.755]]
+    relation = _find_lateral_relation(prompt, selected)
+    relation_slots: dict[str, tuple[str, list[float]]] = {}
+    if relation:
+        left_pose = [-0.22, -0.04, 0.76]
+        right_pose = [0.23, -0.04, 0.755]
+        # The default RoboTwin observer camera mirrors tabletop-local x in the
+        # rendered image. For language prompts, satisfy visual left/right as
+        # judged from the preview image because visual Critic/VLM is the gate.
+        if relation["type"] == "right_of":
+            relation_slots[relation["subject_asset_id"]] = ("left_reachable_area", left_pose)
+            relation_slots[relation["object_asset_id"]] = ("right_reachable_area", right_pose)
+        else:
+            relation_slots[relation["subject_asset_id"]] = ("right_reachable_area", right_pose)
+            relation_slots[relation["object_asset_id"]] = ("left_reachable_area", left_pose)
     objects = []
     for idx, entry in enumerate(selected):
         model_id = entry.get("default_model_id", 0)
         metadata = _metadata_for_default_model(entry)
         semantic = entry.get("semantic_name", entry["asset_id"])
         role_candidates = entry.get("placement_affordances", {}).get("role_candidates", ["scene_object"])
-        region = regions[min(idx, len(regions) - 1)]
-        xyz = poses[min(idx, len(poses) - 1)]
+        region, xyz = relation_slots.get(entry["asset_id"], (regions[min(idx, len(regions) - 1)], poses[min(idx, len(poses) - 1)]))
         placement_defaults = entry.get("placement_defaults", {})
         qpos = placement_defaults.get("qpos", [1, 0, 0, 0])
         if entry["asset_id"] == "003_plate":
@@ -105,6 +168,7 @@ def design_initial_spec(
                 "asset_metadata": {
                     "approx_scaled_extents_m": metadata.get("approx_scaled_extents_m"),
                     "scale": metadata.get("scale"),
+                    "asset_type": entry.get("asset_type", "rigid"),
                     "graspable": affordances.get("graspable", False),
                     "support_surface_candidate": affordances.get("support_surface_candidate", False),
                     "placement_defaults": placement_defaults,
@@ -124,6 +188,17 @@ def design_initial_spec(
                 "subject": objects[0]["id"],
                 "object": objects[1]["id"],
                 "minimum_center_distance_m": 0.28,
+                "status": "designed",
+            }
+        )
+    if relation:
+        subject_id = next((obj["id"] for obj in objects if obj["asset_id"] == relation["subject_asset_id"]), relation["subject_asset_id"])
+        object_id = next((obj["id"] for obj in objects if obj["asset_id"] == relation["object_asset_id"]), relation["object_asset_id"])
+        relations.append(
+            {
+                "type": relation["type"],
+                "subject": subject_id,
+                "object": object_id,
                 "status": "designed",
             }
         )
@@ -164,6 +239,7 @@ def design_initial_spec(
         "designer_notes": [
             "codex_reference is a deterministic reference provider, not a live LLM call.",
             "Future providers should keep the same output schema and validation gate.",
+            "For lateral language relations, default RoboTwin observer-camera visual left/right is prioritized because visual Critic/VLM is the acceptance gate.",
         ],
     }
 

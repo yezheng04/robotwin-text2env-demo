@@ -1,0 +1,130 @@
+{
+  "catalog_version": "robotwin.tabletop_asset_catalog.v0",
+  "catalog_name": "laptop_knife_mvp_assets",
+  "updated_at": "2026-07-01",
+  "purpose": "Minimal RoboTwin tabletop asset catalog for the placement prompt: a laptop is on the right side of a knife.",
+  "source": {
+    "robotwin_root": "~/RoboTwin",
+    "objects_root": "~/RoboTwin/assets/objects",
+    "source_machine_path": "/data/sdb/zhengye/RoboTwin/assets/objects"
+  },
+  "mvp_prompt": "a laptop is on the right side of a knife",
+  "entries": [
+    {
+      "asset_id": "015_laptop",
+      "semantic_name": "laptop",
+      "category": "office",
+      "aliases": ["laptop", "notebook computer", "computer"],
+      "tags": ["laptop", "computer", "office", "tabletop", "articulated"],
+      "asset_type": "articulated",
+      "robotwin_path": "~/RoboTwin/assets/objects/015_laptop",
+      "available_model_ids": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "default_model_id": 0,
+      "files": {
+        "urdf": "*/mobility.urdf",
+        "model_data": "*/model_data.json",
+        "points_info": "points_info.json"
+      },
+      "model_metadata": [
+        {
+          "model_id": 0,
+          "robotwin_subdir": "10040",
+          "scale": [0.15, 0.15, 0.15],
+          "raw_extents": [1.268553, 0.665073, 1.439813],
+          "approx_scaled_extents_m": [0.19028295, 0.09976095, 0.21597195],
+          "stable": true
+        }
+      ],
+      "placement_affordances": {
+        "stable_on_table": true,
+        "graspable": false,
+        "support_surface_candidate": false,
+        "role_candidates": ["scene_object", "reference_object", "distractor"]
+      },
+      "placement_defaults": {
+        "loader": "sapien_urdf",
+        "qpos": [0.7, 0, 0, 0.7],
+        "is_static": true,
+        "fix_root_link": true,
+        "z_policy": "snap_to_tabletop_on_load",
+        "notes": [
+          "RoboTwin open_laptop uses qpos [0.7, 0, 0, 0.7] and fix_root_link=True when loading 015_laptop."
+        ]
+      },
+      "points": {
+        "contact_points": [],
+        "functional_points": []
+      },
+      "retrieval_notes": {
+        "prompt_terms": ["laptop", "notebook computer", "computer"],
+        "selection_rule": "Use this asset when the placement prompt mentions a laptop or notebook computer."
+      }
+    },
+    {
+      "asset_id": "034_knife",
+      "semantic_name": "knife",
+      "category": "tableware",
+      "aliases": ["knife"],
+      "tags": ["knife", "tableware", "tool", "thin", "tabletop"],
+      "asset_type": "rigid",
+      "robotwin_path": "~/RoboTwin/assets/objects/034_knife",
+      "available_model_ids": [0],
+      "default_model_id": 0,
+      "files": {
+        "visual": ["visual/base0.glb"],
+        "collision": ["collision/base0.glb"],
+        "model_data": ["model_data0.json"],
+        "points_info": "points_info.json"
+      },
+      "model_metadata": [
+        {
+          "model_id": 0,
+          "raw_center": [0.00014706707680413436, -0.00518529097648603, 0.0019079088629515557],
+          "raw_extents": [0.09775587600243035, 1.4940585339120356, 0.40469942084235694],
+          "scale": [0.31, 0.31, 0.31],
+          "approx_scaled_extents_m": [0.030304321560753407, 0.463158145512731, 0.12545682046113064],
+          "stable": false
+        }
+      ],
+      "placement_affordances": {
+        "stable_on_table": false,
+        "graspable": true,
+        "support_surface_candidate": false,
+        "role_candidates": ["reference_object", "scene_object", "manipuland_candidate"]
+      },
+      "placement_defaults": {
+        "qpos": [1, 0, 0, 0],
+        "is_static": true,
+        "z_policy": "snap_to_tabletop_on_load",
+        "notes": [
+          "034_knife is marked stable=false in RoboTwin metadata, so this placement smoke treats it as a static background/reference object."
+        ]
+      },
+      "points": {
+        "contact_points": [
+          {
+            "ids": [0],
+            "description": "On the handle of the knife.",
+            "usage": "Used for grasping the knife."
+          }
+        ],
+        "functional_points": [
+          {
+            "id": 0,
+            "description": "At the blade of the knife.",
+            "usage": "Used to indicate where the knife will make contact with other objects."
+          }
+        ]
+      },
+      "retrieval_notes": {
+        "prompt_terms": ["knife"],
+        "selection_rule": "Use this asset when the placement prompt mentions a knife."
+      }
+    }
+  ],
+  "agent_usage": {
+    "designer": "Select laptop and knife assets, then satisfy the right-of relation by placing laptop in the right reachable area and knife in the left reachable area.",
+    "critic": "Check right-of spatial relation, asset availability, bounds, collision, and visual prompt match after render.",
+    "orchestrator": "Finalize selected asset ids, model ids, relation-aware poses, and visual review requirements before RoboTwin loading."
+  }
+}

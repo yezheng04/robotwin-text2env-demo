@@ -113,7 +113,7 @@ def main() -> int:
 
     import sapien.core as sapien
     from envs._base_task import Base_Task
-    from envs.utils import create_actor
+    from envs.utils import create_actor, create_sapien_urdf_obj
 
     class TabletopPlacementSmoke(Base_Task):
         def __init__(self, placement_spec: dict[str, Any]):
@@ -137,15 +137,30 @@ def main() -> int:
                 if obj["asset_id"] == "003_plate" and qpos == [1, 0, 0, 0]:
                     qpos = [0.5, 0.5, 0.5, 0.5]
 
-                actor = create_actor(
-                    self,
-                    pose=sapien.Pose(xyz, qpos),
-                    modelname=obj["asset_id"],
-                    scale=obj.get("asset_metadata", {}).get("scale", (1, 1, 1)) or (1, 1, 1),
-                    model_id=obj.get("model_id", 0),
-                    convex=True,
-                    is_static=obj.get("physical", {}).get("is_static", False),
-                )
+                metadata = obj.get("asset_metadata", {})
+                defaults = metadata.get("placement_defaults", {})
+                loader = defaults.get("loader")
+                asset_type = metadata.get("asset_type", "rigid")
+                if loader == "sapien_urdf" or asset_type == "articulated":
+                    actor = create_sapien_urdf_obj(
+                        self,
+                        pose=sapien.Pose(xyz, qpos),
+                        modelname=obj["asset_id"],
+                        modelid=obj.get("model_id", 0),
+                        fix_root_link=defaults.get("fix_root_link", obj.get("physical", {}).get("is_static", False)),
+                    )
+                    if "articulation_qpos" in defaults:
+                        actor.set_qpos(defaults["articulation_qpos"])
+                else:
+                    actor = create_actor(
+                        self,
+                        pose=sapien.Pose(xyz, qpos),
+                        modelname=obj["asset_id"],
+                        scale=metadata.get("scale", (1, 1, 1)) or (1, 1, 1),
+                        model_id=obj.get("model_id", 0),
+                        convex=True,
+                        is_static=obj.get("physical", {}).get("is_static", False),
+                    )
                 if actor is None:
                     raise RuntimeError(f"Failed to load asset {obj['asset_id']}")
                 actor.set_name(obj["id"])
