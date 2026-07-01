@@ -100,18 +100,25 @@ def get_smoke_artifacts(smoke_dir: Path) -> dict[str, Any]:
     }
 
 
-def visual_review(smoke_dir: Path, prompt: str) -> dict[str, Any]:
+def visual_review(smoke_dir: Path, prompt: str, mode: str = "required") -> dict[str, Any]:
     artifacts = get_smoke_artifacts(smoke_dir)
     missing = [name for name, exists in artifacts["exists"].items() if name != "observer_video" and not exists]
+    if missing:
+        status = "fail_missing_artifacts"
+    elif mode == "artifact_only":
+        status = "pending_visual_critic_artifacts_only"
+    else:
+        status = "pending_human_or_vlm_visual_review"
     return {
         "schema_version": "robotwin.tabletop_visual_review.v0",
         "prompt": prompt,
-        "status": "pass_pending_human_or_vlm_semantic_review" if not missing else "fail_missing_artifacts",
+        "status": status,
+        "review_mode": mode,
         "artifacts": artifacts,
         "missing_required_artifacts": missing,
         "notes": [
-            "This MCP-lite review only checks that render artifacts exist.",
-            "Human or VLM review should verify object identity, visibility, and prompt match.",
+            "Artifact existence is not a semantic visual review.",
+            "A human, Codex visual reference review, or external VLM must check object identity, orientation, table contact, penetration, occlusion, and prompt match before the scene is accepted.",
         ],
     }
 
@@ -149,6 +156,7 @@ def main() -> int:
     p_visual = sub.add_parser("visual-review")
     p_visual.add_argument("--smoke-dir", required=True)
     p_visual.add_argument("--prompt", required=True)
+    p_visual.add_argument("--mode", choices=["required", "artifact_only"], default="required")
 
     args = parser.parse_args()
 
@@ -174,12 +182,12 @@ def main() -> int:
     elif args.command == "get-smoke-artifacts":
         result = get_smoke_artifacts(Path(args.smoke_dir))
     elif args.command == "visual-review":
-        result = visual_review(Path(args.smoke_dir), args.prompt)
+        result = visual_review(Path(args.smoke_dir), args.prompt, mode=args.mode)
     else:
         raise AssertionError(args.command)
 
     print(json.dumps(result, indent=2))
-    return 0 if result.get("status", "pass") not in ["fail", "fail_missing_artifacts"] else 1
+    return 0 if not str(result.get("status", "")).startswith("fail") else 1
 
 
 if __name__ == "__main__":

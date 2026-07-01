@@ -1,0 +1,36 @@
+{
+  "schema_version": "robotwin.tabletop_visual_review.v0",
+  "prompt": "a vagetable and a basket on the table",
+  "status": "pass",
+  "reviewer": {
+    "type": "codex_visual_reference",
+    "reviewed_at": "2026-07-01",
+    "source_image": "previews/vegetable_basket_harness/observer_camera.png"
+  },
+  "checks": [
+    {
+      "name": "object_presence",
+      "status": "pass",
+      "evidence": "The rendered observer view shows one basket and one green vegetable-like object on the tabletop."
+    },
+    {
+      "name": "basket_orientation",
+      "status": "pass",
+      "evidence": "The basket is rendered open-side upward after changing 110_basket to qpos [0.70710678, 0.70710678, 0, 0]."
+    },
+    {
+      "name": "table_contact_and_penetration",
+      "status": "pass",
+      "evidence": "No obvious basket/table penetration, severe floating, or sideways basket pose is visible in the observer camera."
+    },
+    {
+      "name": "prompt_match",
+      "status": "pass",
+      "evidence": "The scene satisfies the prompt at the visual level: a vagetable and a basket on the table."
+    }
+  ],
+  "limitations": [
+    "This is a Codex visual reference review from the current development session, not a reproducible external VLM API call.",
+    "Future automated runs should use an external VLM backend or a required human review report before marking pipeline_summary.status as pass."
+  ]
+}

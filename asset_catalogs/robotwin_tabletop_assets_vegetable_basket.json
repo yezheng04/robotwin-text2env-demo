@@ -107,6 +107,15 @@
         "support_surface_candidate": true,
         "role_candidates": ["container_candidate", "support_or_target_candidate", "distractor"]
       },
+      "placement_defaults": {
+        "qpos": [0.70710678, 0.70710678, 0, 0],
+        "is_static": true,
+        "z_policy": "snap_to_tabletop_on_load",
+        "notes": [
+          "RoboTwin 110_basket appears side-facing with identity orientation.",
+          "x90 qpos was selected from a rendered orientation probe because it makes the basket open upward in the observer camera."
+        ]
+      },
       "points": {
         "contact_points": [
           {

@@ -888,6 +888,18 @@ local_vlm
 - 每个 tool 都要求有输入 schema、输出 schema 和最小测试。
 - 不把 RoboTwin 大资产、data、logs、HDF5 纳入 repo。
 
+### Risk 7: Static Critic 误把视觉失败当作通过
+
+2026-07-01 的 vegetable/basket 测试暴露了这个问题：static validation 和 RoboTwin smoke 都可能通过，但 basket 在 preview 里仍然可能出现朝向错误或穿模。这个问题不能只靠 JSON validator 解决。
+
+处理方式：
+
+- Critic 必须分成 static Critic 和 visual Critic / VLM Critic。
+- `smoke pass` 只表示 RoboTwin 能加载、能渲染，不等于 scene visually valid。
+- pipeline 默认状态改为 `pending_visual_review`，直到 human / VLM / Codex visual reference 明确给出 pass。
+- visual Critic 必须检查 object identity、orientation、table contact、penetration、floating、occlusion 和 prompt match。
+- 对资产库中坐标系特殊的资产，必须把 `placement_defaults.qpos` 等 pose hint 写进 asset catalog，而不是靠 Designer 临场猜。
+
 ---
 
 ## 14. 远程环境状态

@@ -79,12 +79,16 @@ def design_initial_spec(
         role_candidates = entry.get("placement_affordances", {}).get("role_candidates", ["scene_object"])
         region = regions[min(idx, len(regions) - 1)]
         xyz = poses[min(idx, len(poses) - 1)]
-        qpos = [1, 0, 0, 0]
+        placement_defaults = entry.get("placement_defaults", {})
+        qpos = placement_defaults.get("qpos", [1, 0, 0, 0])
         if entry["asset_id"] == "003_plate":
             qpos = [0.5, 0.5, 0.5, 0.5]
         affordances = entry.get("placement_affordances", {})
         role = role_candidates[0]
         is_static_background = role in {"container_candidate", "support_or_target_candidate"} or affordances.get("support_surface_candidate", False)
+        if "is_static" in placement_defaults:
+            is_static_background = bool(placement_defaults["is_static"])
+        z_policy = placement_defaults.get("z_policy", "snap_to_tabletop_on_load")
         objects.append(
             {
                 "id": f"{semantic}_1",
@@ -92,7 +96,7 @@ def design_initial_spec(
                 "asset_id": entry["asset_id"],
                 "model_id": model_id,
                 "role": role,
-                "pose": {"region": region, "xyz": xyz, "qpos": qpos, "z_policy": "snap_to_tabletop_on_load"},
+                "pose": {"region": region, "xyz": xyz, "qpos": qpos, "z_policy": z_policy},
                 "physical": {
                     "is_static": is_static_background,
                     "collision": True,
@@ -103,6 +107,7 @@ def design_initial_spec(
                     "scale": metadata.get("scale"),
                     "graspable": affordances.get("graspable", False),
                     "support_surface_candidate": affordances.get("support_surface_candidate", False),
+                    "placement_defaults": placement_defaults,
                 },
                 "affordance_notes": [],
             }

@@ -43,6 +43,16 @@ def main() -> int:
     parser.add_argument("--settle-steps", type=int, default=240)
     parser.add_argument("--video-frames", type=int, default=60)
     parser.add_argument("--fps", type=int, default=15)
+    parser.add_argument(
+        "--visual-review-mode",
+        choices=["required", "artifact_only"],
+        default="required",
+        help="required prevents smoke artifact existence from being treated as semantic visual pass.",
+    )
+    parser.add_argument(
+        "--visual-review-report",
+        help="Optional human/VLM/Codex-visual review JSON. status must be pass for final pipeline pass.",
+    )
     args = parser.parse_args()
 
     asset_catalog_path = Path(args.asset_catalog)
@@ -129,7 +139,9 @@ def main() -> int:
             smoke_report_path = out_dir / "smoke_report_with_command.json"
             write_json(smoke_report_path, smoke_report)
 
-            visual_review_report = visual_review(smoke_dir, args.prompt)
+            visual_review_report = visual_review(smoke_dir, args.prompt, mode=args.visual_review_mode)
+            if args.visual_review_report:
+                visual_review_report = read_json(Path(args.visual_review_report))
             visual_review_path = out_dir / "visual_review.json"
             write_json(visual_review_path, visual_review_report)
 
@@ -141,13 +153,30 @@ def main() -> int:
                     "preview": get_smoke_artifacts(smoke_dir),
                 }
             )
-            summary["status"] = "pass" if smoke_report.get("status") == "pass" and smoke_report.get("returncode") == 0 else "fail_smoke"
+            smoke_passed = smoke_report.get("status") == "pass" and smoke_report.get("returncode") == 0
+            visual_status = str(visual_review_report.get("status", ""))
+            if not smoke_passed:
+                summary["status"] = "fail_smoke"
+            elif visual_status == "pass":
+                summary["status"] = "pass"
+            elif visual_status.startswith("fail"):
+                summary["status"] = "fail_visual_review"
+            else:
+                summary["status"] = "pending_visual_review"
         else:
             summary["status"] = "pass_static_only"
 
         write_json(out_dir / "pipeline_summary.json", summary)
-        print(f"PASS {out_dir / 'pipeline_summary.json'}")
-        return 0 if summary["status"].startswith("pass") else 1
+        if summary["status"] == "pass":
+            label = "PASS"
+        elif summary["status"] == "pass_static_only":
+            label = "PASS_STATIC_ONLY"
+        elif summary["status"] == "pending_visual_review":
+            label = "REVIEW_REQUIRED"
+        else:
+            label = "FAIL"
+        print(f"{label} {out_dir / 'pipeline_summary.json'}")
+        return 0 if summary["status"] in ["pass", "pending_visual_review", "pass_static_only"] else 1
     except Exception as exc:
         summary["status"] = "fail_exception"
         summary["error"] = repr(exc)
