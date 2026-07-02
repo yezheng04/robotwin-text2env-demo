@@ -40,7 +40,7 @@ That document explains, for every stage:
 From this repo:
 
 ```bash
-python harness/run_scene_generation_pipeline.py \
+python generate_scene/run_scene_generation_pipeline.py \
   --prompt "an apple and a plate on the table" \
   --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
   --case-name apple_plate \
@@ -53,7 +53,7 @@ python harness/run_scene_generation_pipeline.py \
 On the 5090 machine, if RoboTwin's conda Python is not already active, use:
 
 ```bash
-python3 harness/run_scene_generation_pipeline.py \
+python3 generate_scene/run_scene_generation_pipeline.py \
   --prompt "an apple and a plate on the table" \
   --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
   --case-name apple_plate \
@@ -68,10 +68,11 @@ python3 harness/run_scene_generation_pipeline.py \
 
 ```text
 asset_catalogs/                         # RoboTwin asset metadata and prompt cases
+generate_scene/                         # Code_gen-style scene generation Python package
 generated_scenes/                       # generated reusable scene modules
-harness/                                # main pipeline, schemas, grounding, placement, codegen
-mcp_lite/                               # lightweight callable tools for agent/MCP-style usage
-scripts/                                # RoboTwin smoke runner
+harness/                                # compatibility wrappers for older commands
+mcp_lite/                               # compatibility wrapper for tool-style usage
+scripts/                                # compatibility wrapper for the smoke runner
 skills/generate-robotwin-tabletop-scene/ # handoff skill for another Codex/agent
 previews/                               # small committed visual evidence only
 docs/                                  # workflow and repository documentation
@@ -80,10 +81,10 @@ docs/                                  # workflow and repository documentation
 ## Main Entry Points
 
 ```text
-harness/run_scene_generation_pipeline.py   # prompt -> generated scene -> optional smoke
-harness/asset_grounding.py                 # prompt assets -> RoboTwin asset ids
-harness/scene_codegen.py                   # final placement -> generated scene module
-scripts/run_robotwin_placement_smoke.py    # RoboTwin render/smoke validation
+generate_scene/run_scene_generation_pipeline.py  # prompt -> generated scene -> optional smoke
+generate_scene/asset_grounding.py                # prompt assets -> RoboTwin asset ids
+generate_scene/scene_codegen.py                  # final placement -> generated scene module
+generate_scene/run_robotwin_placement_smoke.py   # RoboTwin render/smoke validation
 ```
 
 ## Current Project Plan

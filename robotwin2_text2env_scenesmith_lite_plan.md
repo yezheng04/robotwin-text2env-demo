@@ -435,7 +435,7 @@ asset_catalogs/
   prompt_cases/
     apple_plate.json
 
-harness/
+generate_scene/
   asset_catalog.py
   asset_grounding.py
   model_providers.py
@@ -443,16 +443,15 @@ harness/
   scene_codegen.py
   run_scene_generation_pipeline.py
   run_placement_pipeline.py              # legacy-compatible, can remain for now
-
-mcp_lite/
+  run_robotwin_placement_smoke.py
   tools.py
+
+harness/                                # compatibility wrappers
 
 generated_scenes/
   apple_plate_scene.py
 
-scripts/
-  run_robotwin_placement_smoke.py
-  run_generated_scene_smoke.py           # future
+scripts/                                # compatibility wrappers
 
 skills/
   generate-robotwin-tabletop-scene/
@@ -466,7 +465,7 @@ skills/
 推荐新主入口：
 
 ```bash
-python harness/run_scene_generation_pipeline.py \
+python generate_scene/run_scene_generation_pipeline.py \
   --prompt "an apple and a plate on the table" \
   --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
   --robotwin-root ~/RoboTwin \
@@ -498,16 +497,16 @@ runs/apple_plate_scene/
 - [x] RoboTwin2 环境配置在 5090：`/data/sdb/zhengye/RoboTwin`。
 - [x] 项目仓库在 5090：`/data/sdb/zhengye/robotwin-text2env-demo`。
 - [x] GitHub repo：`https://github.com/yezheng04/robotwin-text2env-demo`。
-- [x] `TabletopPlacementSpec v0`：`harness/schemas.py`。
+- [x] `TabletopPlacementSpec v0`：`generate_scene/schemas.py`。
 - [x] master + prompt case asset catalog：
   - `asset_catalogs/robotwin_tabletop_assets_master.json`
   - `asset_catalogs/prompt_cases/apple_plate.json`
   - `asset_catalogs/prompt_cases/vegetable_basket.json`
   - `asset_catalogs/prompt_cases/laptop_knife.json`
-- [x] prompt case loader：`harness/asset_catalog.py`。
-- [x] deterministic reference provider：`harness/model_providers.py`。
-- [x] RoboTwin placement smoke runner：`scripts/run_robotwin_placement_smoke.py`。
-- [x] MCP-lite tools：`mcp_lite/tools.py`。
+- [x] prompt case loader：`generate_scene/asset_catalog.py`。
+- [x] deterministic reference provider：`generate_scene/model_providers.py`。
+- [x] RoboTwin placement smoke runner：`generate_scene/run_robotwin_placement_smoke.py`。
+- [x] tool-style helpers：`generate_scene/tools.py`。
 - [x] 顶层 handoff skill：`skills/generate-robotwin-tabletop-scene/`。
 - [x] skill 中记录了 RoboTwin `code_gen` 可借鉴模式：
   - `skills/generate-robotwin-tabletop-scene/references/robotwin-code-gen-patterns.md`。
@@ -527,7 +526,7 @@ runs/apple_plate_scene/
 
 ### High Priority
 
-- [x] 写 `harness/asset_grounding.py`：
+- [x] 写 `generate_scene/asset_grounding.py`：
   - 输入自然语言 prompt + master catalog。
   - 输出 `asset_grounding.json`。
   - 自动创建 prompt case JSON。
@@ -535,12 +534,12 @@ runs/apple_plate_scene/
 
 - [x] 定义 `AssetGroundingResult v0` schema。
 
-- [x] 写 `harness/scene_codegen.py`：
+- [x] 写 `generate_scene/scene_codegen.py`：
   - 输入 `final_placement.json`。
   - 输出 `generated_scenes/<case>_scene.py`。
   - 只生成 `load_scene(task)` 或 scene class，不生成 task `play_once()`。
 
-- [x] 写 `harness/run_scene_generation_pipeline.py`：
+- [x] 写 `generate_scene/run_scene_generation_pipeline.py`：
   - 串起 asset grounding、prompt case、placement、scene codegen、smoke、visual review。
   - 逐步替代当前 `run_placement_pipeline.py`。
 

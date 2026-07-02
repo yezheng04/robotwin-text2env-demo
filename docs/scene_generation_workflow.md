@@ -49,7 +49,7 @@ Main output:
 假设 RoboTwin 仓库在 `~/RoboTwin`：
 
 ```bash
-python harness/run_scene_generation_pipeline.py \
+python generate_scene/run_scene_generation_pipeline.py \
   --prompt "an apple and a plate on the table" \
   --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
   --case-name apple_plate \
@@ -66,7 +66,7 @@ python harness/run_scene_generation_pipeline.py \
 ```bash
 cd /data/sdb/zhengye/robotwin-text2env-demo
 
-python3 harness/run_scene_generation_pipeline.py \
+python3 generate_scene/run_scene_generation_pipeline.py \
   --prompt "an apple and a plate on the table" \
   --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
   --case-name apple_plate \
@@ -83,14 +83,14 @@ python3 harness/run_scene_generation_pipeline.py \
 
 | Step | Purpose | Input | Code / tool | Output | Pass signal |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 接收自然语言场景描述 | prompt string | `harness/run_scene_generation_pipeline.py` | run config in `scene_generation_summary.json` | prompt 被记录 |
-| 2 | 抽取并匹配资产 | prompt + master catalog | `harness/asset_grounding.py` | `runs/<case>/asset_grounding.json` | `unmatched_mentions` 为空 |
+| 1 | 接收自然语言场景描述 | prompt string | `generate_scene/run_scene_generation_pipeline.py` | run config in `scene_generation_summary.json` | prompt 被记录 |
+| 2 | 抽取并匹配资产 | prompt + master catalog | `generate_scene/asset_grounding.py` | `runs/<case>/asset_grounding.json` | `unmatched_mentions` 为空 |
 | 3 | 生成 prompt case catalog | `asset_grounding.json` + master catalog | `prompt_case_from_grounding()` | `asset_catalogs/prompt_cases/<case>.json` and `runs/<case>/prompt_case.json` | selected assets 都在 master catalog 中 |
-| 4 | Designer 初始摆放 | prompt case + spatial relations | `harness/model_providers.py` | `runs/<case>/designer_initial_placement.json` | pose 在桌面 bounds 内 |
-| 5 | Static Critic 检查 | initial placement | `harness/schemas.py`, `validate_placement_spec()` | `runs/<case>/static_validation_initial.json` | no schema/asset/bounds/collision failure |
-| 6 | Orchestrator 输出 final placement | designer + critic results | `harness/model_providers.py` | `runs/<case>/final_placement.json` | final placement validation pass |
-| 7 | 生成 RoboTwin scene module | final placement | `harness/scene_codegen.py` | `generated_scenes/<case>_scene.py` | module imports and exposes `load_scene()` |
-| 8 | RoboTwin smoke render | generated scene module + RoboTwin | `scripts/run_robotwin_placement_smoke.py`, `mcp_lite/tools.py` | `runs/<case>/smoke/`, preview images, `smoke_report.json` | simulator starts, objects load, render saved |
+| 4 | Designer 初始摆放 | prompt case + spatial relations | `generate_scene/model_providers.py` | `runs/<case>/designer_initial_placement.json` | pose 在桌面 bounds 内 |
+| 5 | Static Critic 检查 | initial placement | `generate_scene/schemas.py`, `validate_placement_spec()` | `runs/<case>/static_validation_initial.json` | no schema/asset/bounds/collision failure |
+| 6 | Orchestrator 输出 final placement | designer + critic results | `generate_scene/model_providers.py` | `runs/<case>/final_placement.json` | final placement validation pass |
+| 7 | 生成 RoboTwin scene module | final placement | `generate_scene/scene_codegen.py` | `generated_scenes/<case>_scene.py` | module imports and exposes `load_scene()` |
+| 8 | RoboTwin smoke render | generated scene module + RoboTwin | `generate_scene/run_robotwin_placement_smoke.py`, `generate_scene/tools.py` | `runs/<case>/smoke/`, preview images, `smoke_report.json` | simulator starts, objects load, render saved |
 | 9 | Visual/VLM review | smoke preview images | current human/Codex review, future VLM backend | `runs/<case>/visual_review.json` | object identity, pose, contact, direction all pass |
 | 10 | Repair loop | failed review or smoke report | Orchestrator + affected file | updated placement/catalog/scene module | rerun passes |
 
@@ -135,6 +135,14 @@ Do not commit the full `runs/` directory.
 
 ## 4. Main Files and Responsibilities
 
+Current Python implementation lives in one Code_gen-style package:
+
+```text
+generate_scene/
+```
+
+The older `harness/`, `scripts/`, and `mcp_lite/` paths now contain compatibility wrappers only, so old commands can still run while new work should edit `generate_scene/`.
+
 ### `asset_catalogs/robotwin_tabletop_assets_master.json`
 
 Master asset catalog. It records available RoboTwin tabletop objects, aliases, model ids, default poses, size hints, and placement defaults.
@@ -142,9 +150,9 @@ Master asset catalog. It records available RoboTwin tabletop objects, aliases, m
 Used by:
 
 ```text
-harness/asset_grounding.py
-harness/asset_catalog.py
-harness/run_scene_generation_pipeline.py
+generate_scene/asset_grounding.py
+generate_scene/asset_catalog.py
+generate_scene/run_scene_generation_pipeline.py
 ```
 
 ### `asset_catalogs/prompt_cases/*.json`
@@ -157,7 +165,7 @@ Example:
 asset_catalogs/prompt_cases/apple_plate.json
 ```
 
-### `harness/run_scene_generation_pipeline.py`
+### `generate_scene/run_scene_generation_pipeline.py`
 
 Main orchestrator. This is the preferred entry point.
 
@@ -171,7 +179,7 @@ scene code generator
 optional RoboTwin smoke
 ```
 
-### `harness/asset_grounding.py`
+### `generate_scene/asset_grounding.py`
 
 Maps natural-language mentions to asset ids in the master catalog.
 
@@ -193,7 +201,7 @@ Important rule:
 Do not invent asset ids. If unsure, write unmatched_mentions.
 ```
 
-### `harness/model_providers.py`
+### `generate_scene/model_providers.py`
 
 Reference agent backend for Designer, Critic, and Orchestrator.
 
@@ -209,7 +217,7 @@ Future backend:
 OpenAI API, Qwen, Claude, local vLLM, or VLM services
 ```
 
-### `harness/scene_codegen.py`
+### `generate_scene/scene_codegen.py`
 
 Converts `final_placement.json` into a reusable Python module:
 
@@ -226,7 +234,7 @@ def load_scene(task, placement_spec=None):
 
 It must not generate a task `play_once()` as the main output.
 
-### `scripts/run_robotwin_placement_smoke.py`
+### `generate_scene/run_robotwin_placement_smoke.py`
 
 Runs RoboTwin preview/smoke against either a placement spec or generated scene module.
 
@@ -236,7 +244,7 @@ For this project, the important mode is:
 --scene-module generated_scenes/<case>_scene.py
 ```
 
-### `mcp_lite/tools.py`
+### `generate_scene/tools.py`
 
 Thin callable wrapper around the local harness. It is useful for MCP-style or agent-tool usage.
 
@@ -331,7 +339,7 @@ a laptop is on the right side of a knife
 Run:
 
 ```bash
-python harness/run_scene_generation_pipeline.py \
+python generate_scene/run_scene_generation_pipeline.py \
   --prompt "a laptop is on the right side of a knife" \
   --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
   --case-name laptop_knife \
@@ -356,8 +364,8 @@ If visual review fails, repair one of:
 ```text
 asset_catalogs/robotwin_tabletop_assets_master.json
 runs/<case>/final_placement.json
-harness/model_providers.py
-harness/scene_codegen.py
+generate_scene/model_providers.py
+generate_scene/scene_codegen.py
 ```
 
 Then rerun the same command.
