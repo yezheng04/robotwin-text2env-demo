@@ -24,33 +24,39 @@ grep -RIn "<object term>" robotwin_asset_inventory.md asset_catalogs
 find ~/RoboTwin/assets/objects -maxdepth 1 -type d | grep -Ei "<object term>"
 ```
 
-If no prompt-specific catalog exists, first add any new reusable assets to `asset_catalogs/robotwin_tabletop_assets_master.json`, then create a small prompt case at `asset_catalogs/prompt_cases/<short_prompt>.json`.
+Run the scene-generation harness. It performs deterministic asset grounding, writes `asset_grounding.json`, and creates or reuses `asset_catalogs/prompt_cases/<short_prompt>.json`.
 
-## 3. Static Run
+## 3. Static Scene Generation
 
 ```bash
-python harness/run_placement_pipeline.py \
+python harness/run_scene_generation_pipeline.py \
   --prompt "<prompt>" \
-  --asset-catalog asset_catalogs/prompt_cases/<short_prompt>.json \
+  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
+  --case-name "<short_prompt>" \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name>
 ```
 
-Expected status: `PASS_STATIC_ONLY`.
+Expected status: `PASS_STATIC`.
 
 Inspect:
 
+- `asset_grounding.json`
+- `prompt_case.json`
 - `final_placement.json`
 - `static_validation_final.json`
+- `scene_codegen_report.json`
+- `generated_scenes/<short_prompt>_scene.py`
 - relations in `final_placement.json`
 
-## 4. Smoke Render
+## 4. Smoke Render Generated Scene
 
 ```bash
-python harness/run_placement_pipeline.py \
+python harness/run_scene_generation_pipeline.py \
   --prompt "<prompt>" \
-  --asset-catalog asset_catalogs/prompt_cases/<short_prompt>.json \
+  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
+  --case-name "<short_prompt>" \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name> \
@@ -95,9 +101,10 @@ Use human/Codex visual reference/external VLM. Write a report like:
 ## 6. Full Pass
 
 ```bash
-python harness/run_placement_pipeline.py \
+python harness/run_scene_generation_pipeline.py \
   --prompt "<prompt>" \
-  --asset-catalog asset_catalogs/prompt_cases/<short_prompt>.json \
+  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
+  --case-name "<short_prompt>" \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name>_visual_pass \

@@ -15,14 +15,15 @@
 
 ## 必须流程
 
-1. 读取用户 prompt，识别物体和空间关系。
-2. 查找或创建对应 asset catalog。
-3. 先跑 static pipeline。
-4. 用 `--run-smoke` 跑 RoboTwin smoke。
-5. 用人工、Codex visual reference 或外部 VLM 检查 preview。
-6. 如果视觉审核失败，修 catalog defaults 或 placement logic，然后重新跑。
-7. 只有 static validation、smoke、明确 visual review 全部通过，才能标记完整 pass。
-8. 每次发现新坑，都要回写到对应 skill 和 asset catalog。
+1. 从用户 prompt 出发，对 master catalog 做 asset grounding。
+2. 创建或复用 prompt case catalog。
+3. 生成并验证 `TabletopPlacementSpec`。
+4. 生成可复用的 `generated_scenes/<case>_scene.py`。
+5. 用 `--run-smoke` 跑 RoboTwin smoke。
+6. 用人工、Codex visual reference 或外部 VLM 检查 preview。
+7. 如果视觉审核失败，修 catalog defaults、placement logic 或 generated scene code，然后重新跑。
+8. 只有 static validation、scene module generation、smoke、明确 visual review 全部通过，才能标记完整 pass。
+9. 每次发现新坑，都要回写到对应 skill 和 asset catalog。
 
 ## 参考文件
 

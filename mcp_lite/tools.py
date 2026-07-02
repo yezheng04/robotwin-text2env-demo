@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -52,9 +53,12 @@ def run_robotwin_smoke(
     settle_steps: int,
     video_frames: int,
     fps: int,
+    scene_module: Path | None = None,
+    python_executable: str | None = None,
 ) -> dict[str, Any]:
+    runner_python = python_executable or os.environ.get("ROBOTWIN_PYTHON") or sys.executable
     cmd = [
-        sys.executable,
+        runner_python,
         str(REPO_ROOT / "scripts" / "run_robotwin_placement_smoke.py"),
         "--robotwin-root",
         str(robotwin_root),
@@ -73,7 +77,12 @@ def run_robotwin_smoke(
         "--fps",
         str(fps),
     ]
-    completed = subprocess.run(cmd, cwd=str(REPO_ROOT), check=False, text=True, capture_output=True)
+    if scene_module is not None:
+        cmd.extend(["--scene-module", str(scene_module)])
+    env = os.environ.copy()
+    python_bin = str(Path(runner_python).expanduser().resolve().parent)
+    env["PATH"] = python_bin + os.pathsep + env.get("PATH", "")
+    completed = subprocess.run(cmd, cwd=str(REPO_ROOT), check=False, text=True, capture_output=True, env=env)
     report_path = out_dir / "smoke_report.json"
     report = read_json(report_path) if report_path.exists() else {}
     report["command"] = cmd
@@ -144,12 +153,14 @@ def main() -> int:
     p_smoke = sub.add_parser("run-smoke")
     p_smoke.add_argument("--robotwin-root", required=True)
     p_smoke.add_argument("--placement", required=True)
+    p_smoke.add_argument("--scene-module")
     p_smoke.add_argument("--out-dir", required=True)
     p_smoke.add_argument("--task-config", default="demo_smoke")
     p_smoke.add_argument("--seed", type=int, default=0)
     p_smoke.add_argument("--settle-steps", type=int, default=240)
     p_smoke.add_argument("--video-frames", type=int, default=60)
     p_smoke.add_argument("--fps", type=int, default=15)
+    p_smoke.add_argument("--python-executable")
 
     p_artifacts = sub.add_parser("get-smoke-artifacts")
     p_artifacts.add_argument("--smoke-dir", required=True)
@@ -179,6 +190,8 @@ def main() -> int:
             settle_steps=args.settle_steps,
             video_frames=args.video_frames,
             fps=args.fps,
+            scene_module=Path(args.scene_module) if args.scene_module else None,
+            python_executable=args.python_executable,
         )
     elif args.command == "get-smoke-artifacts":
         result = get_smoke_artifacts(Path(args.smoke_dir))

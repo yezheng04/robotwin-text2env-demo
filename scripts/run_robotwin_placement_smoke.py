@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import sys
@@ -30,6 +31,17 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
 def save_rgb(path: Path, rgb: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(rgb.astype("uint8")).save(path)
+
+
+def load_scene_module(path: Path):
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot import generated scene module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    if not hasattr(module, "load_scene"):
+        raise RuntimeError(f"Generated scene module has no load_scene(task, placement_spec=None): {path}")
+    return module
 
 
 def load_robotwin_args(robotwin_root: Path, task_config: str) -> dict[str, Any]:
@@ -93,6 +105,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--robotwin-root", default=str(Path.home() / "RoboTwin"))
     parser.add_argument("--placement", required=True)
+    parser.add_argument("--scene-module", help="Optional generated scene module with load_scene(task, placement_spec=None).")
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--task-config", default="demo_smoke")
     parser.add_argument("--seed", type=int, default=0)
@@ -107,6 +120,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     spec = read_json(placement_path)
+    scene_module_path = Path(args.scene_module).expanduser().resolve() if args.scene_module else None
 
     os.chdir(robotwin_root)
     sys.path.insert(0, str(robotwin_root))
@@ -114,17 +128,23 @@ def main() -> int:
     import sapien.core as sapien
     from envs._base_task import Base_Task
     from envs.utils import create_actor, create_sapien_urdf_obj
+    scene_module = load_scene_module(scene_module_path) if scene_module_path else None
 
     class TabletopPlacementSmoke(Base_Task):
-        def __init__(self, placement_spec: dict[str, Any]):
+        def __init__(self, placement_spec: dict[str, Any], generated_scene_module=None):
             super().__init__()
             self.placement_spec = placement_spec
+            self.generated_scene_module = generated_scene_module
             self.placement_objects = {}
 
         def setup_demo(self, **kwargs: Any) -> None:
             super()._init_task_env_(**kwargs)
 
         def load_actors(self) -> None:
+            if self.generated_scene_module is not None:
+                self.placement_objects = self.generated_scene_module.load_scene(self, self.placement_spec)
+                return
+
             table_z = 0.741 + self.table_z_bias
             for obj in self.placement_spec["objects"]:
                 pose_data = obj["pose"]
@@ -175,11 +195,12 @@ def main() -> int:
     rt_args = load_robotwin_args(robotwin_root, args.task_config)
     rt_args["save_path"] = str(out_dir)
 
-    task = TabletopPlacementSmoke(spec)
+    task = TabletopPlacementSmoke(spec, scene_module)
     report: dict[str, Any] = {
         "placement": str(placement_path),
         "out_dir": str(out_dir),
         "stage": "robotwin_smoke",
+        "scene_module": str(scene_module_path) if scene_module_path else None,
         "seed": args.seed,
         "status": "started",
     }
@@ -240,6 +261,7 @@ def main() -> int:
                 "pose_delta_norm_m": max_pose_delta,
                 "notes": [
                     "Objects were loaded from RoboTwin assets through create_actor.",
+                    "If scene_module is set, objects were loaded through generated load_scene(task).",
                     "Object-specific scale and pose metadata are read from the placement spec when provided.",
                     "This smoke confirms load/render evidence; human or VLM visual review should inspect the saved image/video.",
                 ],

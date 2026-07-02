@@ -516,6 +516,10 @@ runs/apple_plate_scene/
   - vegetable/basket
   - laptop/knife
 - [x] 已明确方位判断采用机器人/双臂第一视角。
+- [x] 已生成并 smoke 验证第一个 scene module：
+  - `generated_scenes/apple_plate_scene.py`
+  - smoke evidence: `previews/apple_plate_scene_module_smoke/`
+  - result: RoboTwin smoke pass, pipeline status `pending_visual_review`
 
 ---
 
@@ -523,27 +527,27 @@ runs/apple_plate_scene/
 
 ### High Priority
 
-- [ ] 写 `harness/asset_grounding.py`：
+- [x] 写 `harness/asset_grounding.py`：
   - 输入自然语言 prompt + master catalog。
   - 输出 `asset_grounding.json`。
   - 自动创建 prompt case JSON。
   - 先支持 exact alias / semantic / tag match，再预留 LLM backend。
 
-- [ ] 定义 `AssetGroundingResult v0` schema。
+- [x] 定义 `AssetGroundingResult v0` schema。
 
-- [ ] 写 `harness/scene_codegen.py`：
+- [x] 写 `harness/scene_codegen.py`：
   - 输入 `final_placement.json`。
   - 输出 `generated_scenes/<case>_scene.py`。
   - 只生成 `load_scene(task)` 或 scene class，不生成 task `play_once()`。
 
-- [ ] 写 `harness/run_scene_generation_pipeline.py`：
+- [x] 写 `harness/run_scene_generation_pipeline.py`：
   - 串起 asset grounding、prompt case、placement、scene codegen、smoke、visual review。
   - 逐步替代当前 `run_placement_pipeline.py`。
 
-- [ ] 写第一个 generated scene module：
+- [x] 写第一个 generated scene module：
   - `generated_scenes/apple_plate_scene.py`。
 
-- [ ] 更新 smoke runner，让它能直接测试 generated scene module，而不只测试 `PlacementSpec`。
+- [x] 更新 smoke runner，让它能直接测试 generated scene module，而不只测试 `PlacementSpec`。
 
 ### Medium Priority
 

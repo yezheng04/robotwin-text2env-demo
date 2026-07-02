@@ -18,14 +18,15 @@ This skill assumes the agent is working in the `robotwin-text2env-demo` repo and
 
 ## Required Workflow
 
-1. Read the user's prompt and identify all objects plus spatial relations.
-2. Find or create an asset catalog for those objects.
-3. Run static pipeline first.
-4. Run RoboTwin smoke with `--run-smoke`.
-5. Inspect preview image/video with human, Codex visual reference, or external VLM.
-6. If visual review fails, repair catalog defaults or placement logic and rerun.
-7. Only mark full pass when static validation, smoke, and explicit visual review all pass.
-8. Record any newly discovered pitfall in the relevant skill and catalog.
+1. Run asset grounding from the user's prompt against the master catalog.
+2. Create or reuse a prompt case catalog for the selected assets.
+3. Generate and validate `TabletopPlacementSpec`.
+4. Generate a reusable `generated_scenes/<case>_scene.py` module.
+5. Run RoboTwin smoke with `--run-smoke`.
+6. Inspect preview image/video with human, Codex visual reference, or external VLM.
+7. If visual review fails, repair catalog defaults, placement logic, or generated scene code and rerun.
+8. Only mark full pass when static validation, scene module generation, smoke, and explicit visual review all pass.
+9. Record any newly discovered pitfall in the relevant skill and catalog.
 
 ## References
 
@@ -39,7 +40,7 @@ Read these only as needed:
 
 ## Status Rules
 
-- `PASS_STATIC_ONLY`: static JSON/catalog validation passed; no RoboTwin render yet.
+- `PASS_STATIC_ONLY` / `pass_static_scene_module`: static JSON/catalog validation passed and scene module was generated; no RoboTwin render yet.
 - `REVIEW_REQUIRED` / `pending_visual_review`: smoke rendered artifacts, but no valid visual report has passed.
 - `PASS`: static validation, smoke, and explicit visual review report all passed.
 - `FAIL`: static validation, smoke, or visual review failed.
@@ -51,9 +52,10 @@ Never treat smoke success as visual success.
 Static-only:
 
 ```bash
-python harness/run_placement_pipeline.py \
+python harness/run_scene_generation_pipeline.py \
   --prompt "<placement prompt>" \
-  --asset-catalog asset_catalogs/<catalog>.json \
+  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
+  --case-name "<case_name>" \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name>
@@ -62,9 +64,10 @@ python harness/run_placement_pipeline.py \
 Smoke render:
 
 ```bash
-python harness/run_placement_pipeline.py \
+python harness/run_scene_generation_pipeline.py \
   --prompt "<placement prompt>" \
-  --asset-catalog asset_catalogs/<catalog>.json \
+  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
+  --case-name "<case_name>" \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name> \
@@ -74,9 +77,10 @@ python harness/run_placement_pipeline.py \
 Full pass after visual review:
 
 ```bash
-python harness/run_placement_pipeline.py \
+python harness/run_scene_generation_pipeline.py \
   --prompt "<placement prompt>" \
-  --asset-catalog asset_catalogs/<catalog>.json \
+  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
+  --case-name "<case_name>" \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name>_visual_pass \

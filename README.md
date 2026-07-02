@@ -1,8 +1,8 @@
-# RoboTwin Tabletop Placement Agent
+# RoboTwin Tabletop Scene Generation Agent
 
-SceneSmith-style tabletop asset placement for RoboTwin scenes.
+SceneSmith-style tabletop scene/background generation for RoboTwin.
 
-This project focuses on the **placement agent**: given a natural-language tabletop scene description and an asset catalog, decide which assets should appear in the scene and where they should be placed so that the resulting RoboTwin scene is semantically correct, physically valid, and useful for downstream robot tasks or external policies.
+This project focuses on generating reusable RoboTwin tabletop scenes: given a natural-language tabletop scene description, ground mentioned objects to RoboTwin assets, decide where they should be placed, generate a scene/background Python module, and validate the result with RoboTwin smoke plus visual review.
 
 Example:
 
@@ -21,15 +21,16 @@ Possible downstream RoboTwin task:
 
 ## What We Are Building
 
-A lightweight SceneSmith-inspired placement loop:
+A lightweight SceneSmith-inspired scene generation loop:
 
 ```text
 Natural-language scene request
--> Designer agent proposes assets and tabletop placements
--> Critic agent checks semantic fit and physical/robot usability
--> Orchestrator agent revises and finalizes the placement spec
--> RoboTwin adapter instantiates the placed scene
--> Downstream robot task or external policy runs in the scene
+-> Asset Grounding agent maps mentions to RoboTwin assets
+-> Designer proposes tabletop placements
+-> Critic checks semantic fit and physical/robot usability
+-> Scene codegen writes generated_scenes/<scene>_scene.py
+-> RoboTwin smoke + visual/VLM review validate the scene
+-> Downstream robot task or external policy imports the scene
 ```
 
 The asset problem is treated as a library/retrieval problem. Assets are expected to come from a richer asset library; this repo focuses on semantic grounding, tabletop placement, and validation in RoboTwin.
@@ -143,18 +144,21 @@ First deliverables:
 - Placement validation report.
 - Smoke video showing the placed scene is physically usable.
 
-## One-Command Prompt To Preview
+## One-Command Prompt To Generated Scene
 
 After RoboTwin is installed at `~/RoboTwin`, run:
 
 ```bash
-python harness/run_placement_pipeline.py \
+python harness/run_scene_generation_pipeline.py \
   --prompt "an apple and a plate on the table" \
-  --asset-catalog asset_catalogs/prompt_cases/apple_plate.json \
+  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
+  --case-name apple_plate \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
-  --out-dir runs/apple_plate_table_harness \
+  --out-dir runs/apple_plate_scene \
   --run-smoke
 ```
 
-The harness writes Designer, Critic, Orchestrator, validation, smoke, and preview artifacts under the selected `--out-dir`.
+The harness writes asset grounding, prompt case, Designer, Critic, Orchestrator, generated scene module, validation, smoke, and preview artifacts under the selected `--out-dir`. The reusable generated scene module is written to `generated_scenes/apple_plate_scene.py`.
+
+The older `harness/run_placement_pipeline.py` remains available when you already have a prompt case catalog and only need PlacementSpec-to-preview behavior.

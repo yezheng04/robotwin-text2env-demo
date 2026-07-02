@@ -1,0 +1,39 @@
+{
+  "schema_version": "robotwin.tabletop_scene_generation_summary.v0",
+  "prompt": "an apple and a plate on the table",
+  "case_name": "apple_plate",
+  "master_catalog": "asset_catalogs/robotwin_tabletop_assets_master.json",
+  "prompt_case": "asset_catalogs/prompt_cases/apple_plate.json",
+  "model_provider": "codex_reference",
+  "out_dir": "runs/apple_plate_scene_smoke",
+  "status": "pending_visual_review",
+  "artifacts": {
+    "asset_grounding": "runs/apple_plate_scene_smoke/asset_grounding.json",
+    "prompt_case_copy": "runs/apple_plate_scene_smoke/prompt_case.json",
+    "designer_initial_placement": "runs/apple_plate_scene_smoke/designer_initial_placement.json",
+    "static_validation_initial": "runs/apple_plate_scene_smoke/static_validation_initial.json",
+    "critic_review": "runs/apple_plate_scene_smoke/critic_review.json",
+    "final_placement": "runs/apple_plate_scene_smoke/final_placement.json",
+    "static_validation_final": "runs/apple_plate_scene_smoke/static_validation_final.json",
+    "validation_plan": "runs/apple_plate_scene_smoke/validation_plan.json",
+    "generated_scene_module": "generated_scenes/apple_plate_scene.py",
+    "scene_codegen_report": "runs/apple_plate_scene_smoke/scene_codegen_report.json",
+    "smoke_report": "runs/apple_plate_scene_smoke/smoke/smoke_report.json",
+    "smoke_report_with_command": "runs/apple_plate_scene_smoke/smoke_report_with_command.json",
+    "visual_review": "runs/apple_plate_scene_smoke/visual_review.json",
+    "preview": {
+      "smoke_dir": "runs/apple_plate_scene_smoke/smoke",
+      "report": "runs/apple_plate_scene_smoke/smoke/smoke_report.json",
+      "head_camera": "runs/apple_plate_scene_smoke/smoke/head_camera.png",
+      "observer_camera": "runs/apple_plate_scene_smoke/smoke/observer_camera.png",
+      "observer_video": "runs/apple_plate_scene_smoke/smoke/observer_camera.mp4",
+      "exists": {
+        "report": true,
+        "head_camera": true,
+        "observer_camera": true,
+        "observer_video": true
+      }
+    }
+  },
+  "prompt_case_status": "exists_not_overwritten"
+}
