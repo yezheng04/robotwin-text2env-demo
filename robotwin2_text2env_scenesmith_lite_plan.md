@@ -1,72 +1,53 @@
-# RoboTwin Tabletop Placement Agent Plan
+# RoboTwin Tabletop Scene Generation Plan
 
-更新时间：2026-06-30
+更新时间：2026-07-02
 所属大任务：Self-Improving Agents for Physical AI
-当前项目方向：SceneSmith-style tabletop placement agent for downstream RoboTwin robot tasks
+当前项目方向：模仿 RoboTwin `code_gen` 的 agentic 思路，做自然语言到 RoboTwin tabletop scene/background 的生成系统。
 
 ---
 
-## 0. 再次明确方向
+## 0. 重新明确方向
 
-这次要更精确地区分三件事：
+我们现在的目标不是生成 RoboTwin task 的 `play_once()`，也不是直接训练 policy，而是生成一个可被 RoboTwin 下游任务或外部 policy 使用的桌面场景。
+
+核心区别：
 
 ```text
-Placement generation != task generation != policy training
+RoboTwin code_gen:
+  task description
+  -> generate envs_gen/gpt_<task>.py::play_once()
+  -> run simulator
+  -> error / visual feedback
+  -> repair task code
+
+我们的项目:
+  scene description
+  -> asset grounding
+  -> generate PlacementSpec
+  -> generate reusable scene/background Python module
+  -> run RoboTwin smoke / preview
+  -> visual/VLM feedback
+  -> repair scene placement / catalog defaults
 ```
 
-我们现在要做的是 **placement agent**：根据自然语言和资产库决定桌面资产应该如何摆放。
-
-也就是说，输入一句自然语言：
+一句话目标：
 
 ```text
-an apple and a plate on the table
+把自然语言桌面场景描述转换成 RoboTwin 可加载、可渲染、可复用、可被视觉审核的 generated scene/background。
 ```
 
-我们生成的应该是一个 RoboTwin 中可加载、可验证的桌面场景：
+例子：
 
 ```text
-table
-+ apple placed on a reachable tabletop pose
-+ plate placed on a reachable tabletop pose
-+ physically valid poses
-+ usable asset metadata
-```
-
-这个场景以后可以被下游机器人任务使用。例如，在这个场景上再定义或执行：
-
-```text
-pick the apple and place it on the plate
-```
-
-所以本项目的直接输出不是 `play_once()`、`check_success()` 或新的 RoboTwin task program，而是：
-
-```text
-simulation-ready tabletop placement / placed scene
-```
-
-这个理解更接近 SceneSmith 页面里的 **Zero-Shot External Policy in Generated Scenes**：先生成物理可用场景，再让一个外部/下游 robot policy 在这些场景里执行任务。
-
-博士生给我的要求可以概括为：**做一个 placement agent，通过 agentic 的方式解决桌面场景里资产如何摆放的问题。** 资产生成、完整任务生成和 policy 训练都不是当前主线。
-
----
-
-## 1. 一句话目标
-
-学习 SceneSmith 的 agentic scene construction 思路，专注做 RoboTwin tabletop placement agent：把自然语言里的空间语义转成资产选择和桌面 pose，使生成的 placed scene 可以被后续 RoboTwin task、外部 policy 或 evaluation pipeline 使用。
-
-最小例子：
-
-```text
-Input placement prompt:
+Input:
   "an apple and a plate on the table"
 
-Output placement:
-  apple asset on a reachable tabletop area
-  plate asset on a reachable tabletop area
-  no collisions
-  stable on table
-  visible to camera
-  reachable enough for a later pick-and-place task
+Output:
+  generated_scenes/apple_plate_scene.py
+  + PlacementSpec JSON
+  + prompt case catalog
+  + smoke preview image/video
+  + visual/VLM review report
 
 Possible downstream task:
   "pick the apple and place it on the plate"
@@ -74,883 +55,610 @@ Possible downstream task:
 
 ---
 
-## 2. 和旧路线的区别
+## 1. 新的端到端流程
 
-旧路线：
-
-```text
-Natural language task
--> Text2Env JSON
--> generate RoboTwin task program
--> collect data / train / eval
-```
-
-新路线：
+重构后的主流程：
 
 ```text
-Natural language placement prompt
--> TabletopPlacementSpec
--> instantiate placed scene in RoboTwin
--> downstream task / external policy runs in generated placed scene
+Natural-language scene prompt
+-> Asset Grounding Agent
+-> Prompt Case Catalog
+-> Designer Agent creates TabletopPlacementSpec
+-> Critic validates semantic / physics / robot usability
+-> Scene Code Generator writes a RoboTwin scene/background Python module
+-> RoboTwin smoke render
+-> Visual/VLM Critic reviews preview
+-> Orchestrator repairs placement/catalog/code
+-> Final generated scene artifact for downstream task/policy
 ```
 
-关键变化：
+对应文件流：
 
-- 旧路线关注“生成任务代码”。
-- 新路线关注“资产选择与桌面摆放”，也就是 placement。
-- 旧路线的自然语言通常是 action-oriented，例如 move / pick / place。
-- 新路线的自然语言可以是 placement-oriented，例如 apple and plate on table, cup near plate, breakfast tabletop, cluttered toolbench。
-- 下游 task 可以在 scene 生成之后再定义。
+```text
+prompt
+-> runs/<case>/asset_grounding.json
+-> asset_catalogs/prompt_cases/<case>.json
+-> runs/<case>/final_placement.json
+-> generated_scenes/<case>_scene.py
+-> runs/<case>/smoke/
+-> runs/<case>/visual_review.json
+-> runs/<case>/scene_generation_summary.json
+```
+
+最终交付不应该只停在 JSON。`PlacementSpec` 是中间表示，真正给 RoboTwin 下游使用的产物应该是一个 Python scene/background loader。
 
 ---
 
-## 3. SceneSmith 给我们的参考
+## 2. 和 RoboTwin code_gen 的对应关系
 
-SceneSmith 是从自然语言生成 simulation-ready indoor scenes 的 agentic framework。它的页面里强调：
+我们借鉴 `RoboTwin/code_gen` 的机制，但不照搬目标。
 
-- VLM agents 共同生成 simulation-ready scene。
-- 场景直接可用于 physics simulator。
-- 生成场景可以支持外部 robot policy 的 zero-shot interaction。
-- 场景也可以用于 scalable policy evaluation。
+| RoboTwin code_gen | 我们的 scene generation |
+| --- | --- |
+| `task_info.py` | `scene_info.json` / `asset_grounding.json` / prompt case |
+| `prompt.py` | scene prompt + coordinate/API/asset rules |
+| `task_generation_mm.py` | `scene_generation_mm.py` / harness scene loop |
+| `envs_gen/gpt_<task>.py` | `generated_scenes/<scene_name>_scene.py` |
+| `test_gen_code.py` | scene smoke / placement validator / visual review |
+| `observation_agent.py` | scene visual/VLM critic |
+| repair `play_once()` | repair pose / qpos / loader / static / catalog defaults / scene loader |
 
-我们不复刻完整 room / house scene generation，只取 tabletop 版本：
+关键原则：
 
 ```text
-tabletop placement prompt
--> object selection
--> object placement
--> physical validation
--> RoboTwin scene loading
--> downstream robot task compatibility
+借鉴 code_gen 的结构化输入、仿真测试、视觉反馈、迭代 repair。
+不要把项目重新变成 task code generation。
 ```
 
 ---
 
-## 4. 三个 placement agents 的分工
+## 3. 分层架构
 
-### 4.1 Designer agent
+### 3.1 Asset Grounding Layer
 
-Designer 负责把自然语言 placement prompt 变成初始桌面资产摆放方案。
+第一步先解决自然语言里的 objects/assets 是什么，并对应到 master asset catalog 中的哪个 RoboTwin asset。
 
 输入：
 
-- placement prompt。
-- tabletop bounds。
-- asset catalog。
-- optional downstream task hint。
-- optional robot/camera constraints。
+```text
+scene prompt
+robotwin_tabletop_assets_master.json
+```
 
 输出：
 
-- 需要哪些 objects。
-- 每个 object 的语义角色。
-- 每个 object 对应的 asset candidates。
-- 物体之间的空间关系。
-- 初始 pose proposal。
-- 可能的 keep-out / interaction zones。
-
-例子：
-
 ```text
-Prompt:
-  an apple and a plate on the table
-
-Designer output:
-  apple: reachable tabletop region
-  plate: reachable tabletop region
-  table center kept mostly free if downstream pick-and-place is expected
+asset_grounding.json
+asset_catalogs/prompt_cases/<case>.json
 ```
 
-### 4.2 Critic agent
-
-Critic 负责评估这个 placement 是否语义正确、物理可行、机器人可用。
-
-检查范围：
-
-- 语义是否匹配 prompt。
-- asset 是否存在，是否类别正确。
-- left / right / near / inside / on top 等 spatial relation 是否满足。
-- pose 是否在桌面边界内。
-- asset 是否互相碰撞。
-- asset 是否稳定放在桌上。
-- 是否保留了机器人可达空间。
-- 是否会遮挡相机或挡住下游 policy。
-
-Critic 不负责生成 task code，也不负责训练 policy。
-
-### 4.3 Orchestrator agent
-
-Orchestrator 负责沟通 Designer 和 Critic。
-
-它决定：
-
-- 接受 placement spec。
-- 要求 Designer 换 asset。
-- 要求 Designer 调整 pose。
-- 要求减少 clutter。
-- 触发 simulator validation。
-- 根据 RoboTwin logs 让 Designer 修复。
-
-最终输出：
-
-```text
-final TabletopPlacementSpec
-validation report
-RoboTwin scene adapter command
-```
-
----
-
-## 5. 资产库的新边界
-
-资产生成本身不是当前重点。后续会有人负责更丰富的资产来源。
-
-本项目假设会有一个 asset library，提供：
-
-```text
-asset_id
-category
-natural-language tags
-thumbnail / preview
-visual mesh
-collision mesh
-dimensions
-stable pose
-physical metadata
-optional affordance / functional points
-```
-
-RoboTwin 最终安装路径仍然是：
-
-```text
-~/RoboTwin/assets/objects/<asset_id>/
-/data/sdb/zhengye/RoboTwin/assets/objects/<asset_id>/
-```
-
-普通刚体资产推荐结构：
-
-```text
-~/RoboTwin/assets/objects/<asset_id>/
-  visual/base0.glb
-  collision/base0.glb
-  model_data0.json
-  points_info.json
-  asset_manifest.json
-```
-
-我们需要解决的是 **asset grounding**：
-
-```text
-"apple" -> choose `035_apple` or another apple asset
-"plate" -> choose `003_plate` or another plate asset
-"on the table" -> convert to stable tabletop poses
-"and" -> ensure both objects are present, visible, non-overlapping, and reachable
-```
-
-可用方法：
-
-- LLM 读 asset catalog tags。
-- CLIP / SigLIP / VLM 对 thumbnails 做 image-text matching。
-- 规则约束：category 必须匹配，尺寸必须合理，stable_on_table 必须为 true。
-
----
-
-## 6. 新的中间表示：TabletopPlacementSpec
-
-旧 Text2Env 是为了描述任务。现在需要的是 `TabletopPlacementSpec`，用于描述资产选择、空间关系和桌面 pose。
-
-建议 v0：
+建议 schema：
 
 ```json
 {
-  "schema_version": "robotwin.tabletop_placement.v0",
-  "placement_name": "apple_plate_table_v0",
-  "language_prompt": "an apple and a plate on the table",
-  "workspace": {
-    "surface": "table",
-    "bounds": {
-      "x": [-0.45, 0.45],
-      "y": [-0.35, 0.25],
-      "z": [0.74, 1.10]
-    },
-    "spatial_regions": {
-      "apple_start_area": {
-        "x": [-0.25, -0.05],
-        "y": [-0.20, 0.15]
-      },
-      "plate_area": {
-        "x": [0.05, 0.30],
-        "y": [-0.20, 0.15]
-      }
-    }
-  },
-  "objects": [
+  "schema_version": "robotwin.tabletop_asset_grounding.v0",
+  "prompt": "an apple and a plate on the table",
+  "direction_frame": "robot_or_dual_arm_first_person",
+  "matched_assets": [
     {
-      "id": "apple_1",
-      "semantic": "apple",
+      "mention": "apple",
       "asset_id": "035_apple",
-      "role": "manipuland_candidate",
-      "pose": {
-        "region": "apple_start_area",
-        "xyz": [-0.15, -0.02, 0.75],
-        "qpos": [1, 0, 0, 0]
-      },
-      "physical": {
-        "is_static": false,
-        "collision": true,
-        "stable_on_table": true
-      }
-    },
-    {
-      "id": "plate_1",
-      "semantic": "plate",
-      "asset_id": "003_plate",
-      "role": "support_or_target_candidate",
-      "pose": {
-        "region": "plate_area",
-        "xyz": [0.16, -0.02, 0.75],
-        "qpos": [1, 0, 0, 0]
-      },
-      "physical": {
-        "is_static": false,
-        "collision": true,
-        "stable_on_table": true
-      }
+      "semantic_name": "apple",
+      "match_type": "exact_alias",
+      "confidence": 1.0,
+      "reason": "Prompt mention 'apple' exactly matches alias 'apple'."
     }
   ],
-  "constraints": [
-    "objects_on_table",
-    "no_initial_collision",
-    "satisfy_prompt_object_presence",
-    "keep_robot_reachable"
+  "unmatched_mentions": [],
+  "spatial_relations": [
+    {
+      "subject_mention": "apple",
+      "relation": "on_surface",
+      "reference": "table"
+    }
   ],
-  "downstream_task_hints": [
-    "pick the apple and place it on the plate"
-  ],
-  "validation": {
-    "semantic_check": "pending",
-    "asset_check": "pending",
-    "collision_check": "pending",
-    "stability_check": "pending",
-    "robotwin_load_check": "pending"
-  }
+  "warnings": []
 }
 ```
 
-注意：这里没有 `play_once()`，没有 `check_success()`。它描述的是 placement，不是任务。
-
----
-
-## 7. RoboTwin 里的落点
-
-我们要把 TabletopPlacementSpec 实例化到 RoboTwin。
-
-可能实现方式：
+实现策略：
 
 ```text
-Option A: 写一个通用 placement loader/helper
-Option B: 写一个 base tabletop scene task，只负责加载场景
-Option C: 写一个 wrapper，在下游 task reset 前加载指定 scene
+1. deterministic exact alias / semantic_name / tag match
+2. LLM ranking over available catalog entries
+3. optional embedding / VLM retrieval for large asset library
+4. if uncertain, mark unmatched; do not invent asset_id
 ```
 
-推荐从 Option A 开始：
+### 3.2 Prompt Case Catalog Layer
 
-```python
-def load_tabletop_placement(task, placement_spec):
-    task.placement_objects = {}
-    for obj in placement_spec["objects"]:
-        actor = create_actor(
-            scene=task,
-            pose=sapien.Pose(obj["pose"]["xyz"], obj["pose"]["qpos"]),
-            modelname=obj["asset_id"],
-            convex=True,
-            is_static=obj["physical"].get("is_static", False),
-            model_id=obj.get("model_id", 0),
-        )
-        task.placement_objects[obj["id"]] = actor
-```
-
-后续下游 task 可以引用这个场景：
+资产库采用 master + prompt case。
 
 ```text
-scene = apple_plate_table_v0
-task = pick apple and place on plate
-policy = external pick-and-place policy
-```
-
----
-
-## 8. What To Do
-
-### 8.1 必须完成
-
-- [x] 定义 TabletopPlacementSpec v0：`harness/schemas.py`。
-- [x] 定义 asset catalog entry format，并建立 master + prompt case 结构：`asset_catalogs/robotwin_tabletop_assets_master.json`、`asset_catalogs/prompt_cases/apple_plate.json`。
-- [x] 选一个简单 placement prompt：an apple and a plate on the table。
-- [x] 准备或指定 apple / plate assets：`035_apple`、`003_plate`。
-- [x] 写 Designer prompt：`prompts/designer_prompt.md`。
-- [x] 写 Designer 初始 PlacementSpec：`placements/apple_plate_table/designer_initial_placement.json`。
-- [x] 写 Critic prompt：`prompts/critic_prompt.md`。
-- [x] 写 Critic 静态 review：`placements/apple_plate_table/critic_review.json`。
-- [x] 写 Orchestrator prompt：`prompts/orchestrator_prompt.md`。
-- [x] 输出 final static placement：`placements/apple_plate_table/final_placement.json`。
-- [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
-- [x] 写 PlacementSpec validator：`harness/schemas.py`。
-- [x] 写 RoboTwin placement loader / smoke runner：`scripts/run_robotwin_placement_smoke.py`。
-- [x] 在 RoboTwin 中加载该 scene。
-- [x] 跑 load / stability / camera smoke。
-- [x] 保存 smoke result、图片、视频和人工 visual review。
-- [ ] 记录该 scene 可供下游 task 使用的方式。
-
-### 8.2 暂不做
-
-- [ ] 不以生成新 task program 为主目标。
-- [ ] 不训练 3D asset generator。
-- [ ] 不复刻完整房间/住宅 SceneSmith。
-- [ ] 不要求一开始完成 policy training。
-- [ ] 不要求一开始自动生成 success predicate。
-
-### 8.3 MVP 交付物
-
-```text
-1. TabletopPlacementSpec schema draft
-2. asset catalog master + prompt case sample
-3. Designer prompt draft
-4. apple-and-plate Designer initial placement spec
-5. Critic prompt and static review
-6. Orchestrator prompt, final static placement, and validation plan
-7. RoboTwin placement loader helper
-8. RoboTwin load/stability smoke result
-9. render image/video and visual review result
-10. explanation of how a downstream RoboTwin task can consume the scene
-```
-
----
-
-## 9. How To Do
-
-### Step 1: 选第一个 placement prompt
-
-已选第一个 MVP placement prompt：
-
-```text
-an apple and a plate on the table
-```
-
-这个 prompt 好处：
-
-- 语义清晰。
-- 当前 RoboTwin 基础资产库已有 `035_apple` 和 `003_plate`。
-- 只要求两个物体都在桌面上，避免一开始引入复杂空间关系。
-- 只需要两个物体。
-- 后续能自然接 pick-and-place task。
-- 容易通过视觉和 simulator state 验证 object presence、on-table、no-collision、stability。
-
-### Step 2: 建 asset catalog 小样例
-
-已建立第一个 MVP asset catalog：
-
-```text
-asset_catalogs/robotwin_tabletop_assets_master.json
-asset_catalogs/prompt_cases/apple_plate.json
-```
-
-先不接大资产库，当前 catalog 只覆盖 apple / plate 两个资产，用于验证 agent 能完成最小 asset grounding：
-
-```json
-[
-  {
-    "asset_id": "035_apple",
-    "category": "apple",
-    "tags": ["apple", "fruit", "round", "tabletop"],
-    "models": 2,
-    "size_m": null,
-    "stable_on_table": true,
-    "graspable": true,
-    "robotwin_path": "~/RoboTwin/assets/objects/035_apple"
-  },
-  {
-    "asset_id": "003_plate",
-    "category": "plate",
-    "tags": ["plate", "tableware", "flat", "support_surface", "tabletop"],
-    "models": 1,
-    "size_m": null,
-    "stable_on_table": true,
-    "graspable": false,
-    "support_surface_candidate": true,
-    "robotwin_path": "~/RoboTwin/assets/objects/003_plate"
-  }
-]
-```
-
-### Step 3: 让 Designer 生成初始 PlacementSpec
-
-已完成两个输出：
-
-```text
-prompts/designer_prompt.md
-placements/apple_plate_table/designer_initial_placement.json
-```
-
-Designer prompt 应要求：
-
-- 识别场景里需要的 objects。
-- 找到合适 asset。
-- 将 "on the table" 映射成桌面坐标区域。
-- 生成 pose。
-- 保证不碰撞、不越界。
-- 给出下游 task hints。
-
-### Step 4: 让 Critic 检查 PlacementSpec
-
-已完成两个输出：
-
-```text
-prompts/critic_prompt.md
-placements/apple_plate_table/critic_review.json
-```
-
-本次 Critic 静态 review 结论：
-
-```text
-verdict = accept_for_next_stage
-```
-
-含义是：语义、资产、model id、bounds、粗略 collision、稳定性 metadata 和下游可用性在静态层面通过；但 RoboTwin load、真实物理稳定性、camera/render 可见性仍需后续 smoke 验证。
-
-Critic prompt 应限制在：
-
-- semantic match。
-- asset availability。
-- spatial relation。
-- tabletop bounds。
-- collision / stability。
-- downstream robot usability。
-
-Critic 输出：
-
-```json
-{
-  "verdict": "accept_or_repair",
-  "issues": [],
-  "repair_suggestions": []
-}
-```
-
-### Step 5: Orchestrator 输出 final placement
-
-已完成三个输出：
-
-```text
-prompts/orchestrator_prompt.md
-placements/apple_plate_table/final_placement.json
-placements/apple_plate_table/validation_plan.json
-```
-
-本次 Orchestrator 决策：
-
-```text
-decision = accept_for_smoke
-stage = final_static_for_smoke
-```
-
-含义是：Designer 初稿通过了 Static Critic，Orchestrator 不要求 repair，直接整理成下一步 RoboTwin smoke 使用的 final static placement。但它还不是视觉/仿真验证后的 final scene；`exact_table_contact`、`render_visibility`、`simulator_stability` 仍然 pending。
-
-### Step 6: RoboTwin placement loader
-
-已实现一个 helper / smoke runner，不生成新 task program：
-
-```text
-scripts/run_robotwin_placement_smoke.py
-```
-
-运行命令：
-
-```text
-python scripts/run_robotwin_placement_smoke.py \
-  --robotwin-root /data/sdb/zhengye/RoboTwin \
-  --placement placements/apple_plate_table/final_placement.json \
-  --out-dir runs/apple_plate_table_smoke \
-  --task-config demo_smoke \
-  --seed 0 \
-  --settle-steps 240 \
-  --video-frames 60 \
-  --fps 15
-```
-
-目标是把 PlacementSpec 里的物体实例化到 RoboTwin scene，并保存图片、视频和 pose log。
-
-### Step 7: validation / smoke
-
-验证分两层：
-
-静态 validation：
-
-- asset id exists。
-- pose in bounds。
-- no bbox overlap。
-- required objects are on the tabletop and match the prompt。
-
-RoboTwin validation：
-
-- scene loads。
-- objects stable。
-- video/camera can see objects。
-- simple downstream policy/task can reference scene objects。
-
-本次 smoke 已完成：
-
-```text
-placements/apple_plate_table/smoke_result.json
-placements/apple_plate_table/visual_review.json
-previews/apple_plate_table/head_camera.png
-previews/apple_plate_table/observer_camera.png
-previews/apple_plate_table/observer_camera.mp4
-```
-
-结论：
-
-```text
-robotwin_load = pass
-settling_stability = pass
-render_evidence = pass
-human_visual_review = pass
-```
-
----
-
-## 10. 后续如何接 RoboTwin task
-
-Placement 生成后，下游 task 可以有两种方式使用：
-
-### 10.1 外部 policy 直接使用 scene
-
-类似 SceneSmith 的 external policy demo：
-
-```text
-generated placed scene
-+ language-conditioned policy
--> policy executes: pick the apple and place it on the plate
-```
-
-这要求 policy 本身能理解 scene observations 和 language command。
-
-### 10.2 RoboTwin task 消费 scene
-
-后续可以写一个 RoboTwin task，但这是 scene 之后的下游模块：
-
-```text
-placement_spec = apple_plate_table_v0
-task = pick_apple_to_plate
-```
-
-task 不需要重新决定 apple/plate 怎么摆；它读取 scene 里的 object id 和 pose。
-
-也就是说：
-
-```text
-placement generation first
-task definition second
-policy/data/eval third
-```
-
----
-
-## 11. MCP + Skill + Harness 系统化方向
-
-博士生提出的方向是：把当前 demo 做成一个 **MCP + skill + harness** 系统。这个方向是合理的，因为我们现在已经有了 prompt、PlacementSpec、RoboTwin smoke runner、图片/视频结果；下一步应该把它们从“手工串联 demo”升级成“可复现 agentic placement harness”。
-
-### 11.1 三层设计
-
-```text
-Skill = 教 agent 怎么做
-MCP = 给 agent 稳定可调用的 RoboTwin 工具
-Harness = 把完整流程固定成可复现 pipeline
-```
-
-### 11.2 MCP tools 层
-
-目标是做一个 `robotwin-placement-mcp`，把 RoboTwin 相关能力封装成工具，避免 agent 直接乱翻目录或手写临时 shell。
-
-建议工具：
-
-```text
-list_assets()
-get_asset_metadata(asset_id)
-validate_placement_spec(spec)
-run_robotwin_smoke(spec)
-render_scene(spec)
-get_smoke_artifacts(run_id)
-visual_review(image_or_video, prompt)
-```
-
-当前已有的 `scripts/run_robotwin_placement_smoke.py` 可以作为 `run_robotwin_smoke(spec)` 的原型。
-
-### 11.3 Skill 层
-
-Skill 负责固定 agent 的行为规范，不绑定具体模型。
-
-当前采用一个顶层 handoff skill 加多个 focused skill 的结构。顶层 skill 用来给另一个 Codex / agent 复现完整流程，focused skill 负责具体能力。
-
-顶层 skill：
-
-```text
-generate-robotwin-tabletop-scene
-  输入新的 placement prompt + asset catalog / RoboTwin path
-  调度 asset grounding、Designer、Critic、Orchestrator、smoke、visual review、repair、lesson 回写
-  输出可验收的 RoboTwin tabletop scene preview 或明确 blocker
-```
-
-focused skills：
-
-```text
-design-tabletop-placement
-  输入 placement prompt + asset catalog
-  输出 initial PlacementSpec
-
-critique-tabletop-placement
-  检查 semantic match、asset availability、bounds、collision/stability、render evidence
-
-orchestrate-placement-pipeline
-  根据 critic 结果决定 accept / repair / rerun
-
-ground-objects-to-robotwin-assets
-  把自然语言 object 映射到 RoboTwin 或 rich asset library asset_id
-
-review-robotwin-smoke-preview
-  跑 smoke，保存图片/视频，写 visual review
-```
-
-当前顶层入口已经放在 `skills/generate-robotwin-tabletop-scene/`。另一个 agent 不需要复现我们手工探索过的每一步，只需要拿到 repo、确认 RoboTwin 在 `~/RoboTwin`，然后从这个 skill 开始处理新的自然语言 prompt。
-
-现有的 `prompts/designer_prompt.md`、`prompts/critic_prompt.md`、`prompts/orchestrator_prompt.md` 已迁移成 focused skill 初版，并保留中文版 `SKILL.zh-CN.md` 方便中文协作。
-
-### 11.4 Harness 层
-
-Harness 是端到端 runner，目标是一条命令从自然语言跑到 scene preview：
-
-```bash
-python harness/run_placement_pipeline.py \
-  --prompt "an apple and a plate on the table" \
-  --asset-catalog asset_catalogs/prompt_cases/apple_plate.json \
-  --robotwin-root ~/RoboTwin \
-  --model-provider codex_reference \
-  --out-dir runs/apple_plate_table
-```
-
-固定流程：
-
-```text
-1. asset grounding
-2. Designer 生成 initial PlacementSpec
-3. schema/static validation
-4. Critic review
-5. Orchestrator 输出 final placement
-6. RoboTwin smoke render
-7. visual critic / human review
-8. 生成 report
-```
-
-### 11.5 推荐目录结构
-
-```text
-mcp/
-  robotwin_placement_server.py
-  tools/
-    assets.py
-    validation.py
-    smoke.py
-    render.py
-
-skills/
-  generate-robotwin-tabletop-scene/SKILL.md
-  generate-robotwin-tabletop-scene/SKILL.zh-CN.md
-  generate-robotwin-tabletop-scene/references/
-  design-tabletop-placement/SKILL.md
-  design-tabletop-placement/SKILL.zh-CN.md
-  critique-tabletop-placement/SKILL.md
-  critique-tabletop-placement/SKILL.zh-CN.md
-  orchestrate-placement-pipeline/SKILL.md
-  orchestrate-placement-pipeline/SKILL.zh-CN.md
-  ground-objects-to-robotwin-assets/SKILL.md
-  ground-objects-to-robotwin-assets/SKILL.zh-CN.md
-  review-robotwin-smoke-preview/SKILL.md
-  review-robotwin-smoke-preview/SKILL.zh-CN.md
-
-harness/
-  run_placement_pipeline.py
-  model_providers.py
-  schemas.py
-
 asset_catalogs/
   robotwin_tabletop_assets_master.json
   prompt_cases/
     apple_plate.json
     vegetable_basket.json
     laptop_knife.json
-placements/
-previews/
-reports/
 ```
 
-### 11.6 最小交付顺序
-
-第一阶段不要一口气做全 MCP server。先做 MCP-lite / CLI harness：
+`robotwin_tabletop_assets_master.json` 保存可复用资产信息：
 
 ```text
-1. 抽出 PlacementSpec validator。
-2. 把 run_robotwin_placement_smoke.py 封装成可复用 smoke tool。
-3. 写 Designer / Critic / Orchestrator / Smoke Review skill 初版。
-4. 写 harness/run_placement_pipeline.py，一条命令复现 apple/plate。
-5. 写 `generate-robotwin-tabletop-scene` 顶层 handoff skill，让另一个 agent 能从新 prompt 跑完整流程。
-6. 再把 CLI tools 包成 MCP tools。
+asset_id
+semantic_name
+aliases
+tags
+asset_type
+available_model_ids
+default_model_id
+scale / extents / stable
+placement_defaults
+affordances
+points metadata
 ```
 
-模型后端要保持可替换：
+`prompt_cases/<case>.json` 只保存本 prompt 选了哪些资产：
 
-```text
-codex_reference
-openai_api
-qwen_api
-claude_api
-local_vllm
-local_vlm
+```json
+{
+  "catalog_version": "robotwin.tabletop_asset_catalog_case.v0",
+  "base_catalog": "../robotwin_tabletop_assets_master.json",
+  "mvp_prompt": "an apple and a plate on the table",
+  "selected_asset_ids": ["035_apple", "003_plate"],
+  "entry_overrides": {}
+}
 ```
 
-这样别人复现时可以先用 `codex_reference` 或 mock/reference artifact，不需要马上配置模型 API；之后再替换成 Qwen、OpenAI、Claude 或本地 VLM。
+### 3.3 PlacementSpec Layer
 
-### 11.7 Skill lessons 回写规则
+`TabletopPlacementSpec` 是中间表示，描述资产、空间关系、桌面 pose、物理属性和验证状态。
 
-每次跑新的 placement prompt 后，如果发现任何新坑，都必须回写到 skill，不只是修代码：
+它回答：
 
 ```text
-1. prompt 语义坑 -> skills/design-tabletop-placement
-2. asset / loader / qpos / scale 坑 -> skills/ground-objects-to-robotwin-assets
-3. static validator 漏检 -> skills/critique-tabletop-placement
-4. visual/VLM 判别坑 -> skills/review-robotwin-smoke-preview
-5. pipeline 状态、repair、rerun 规则 -> skills/orchestrate-placement-pipeline
-6. 新 prompt 的端到端经验 -> skills/generate-robotwin-tabletop-scene/references/known-pitfalls.md
+场景里有哪些物体？
+每个物体用哪个 asset？
+每个物体放在哪里？
+物体之间有什么空间关系？
+是否满足机器人第一视角方位？
+是否可达、稳定、无碰撞？
 ```
 
-一次 run 的完整收尾标准：
+注意：`PlacementSpec` 不包含 `play_once()`，不包含 `check_success()`，不描述机器人动作程序。
+
+### 3.4 Scene Python Module Layer
+
+为了让下游 RoboTwin task 使用，最终应该生成一个 Python scene/background module。
+
+推荐目录：
 
 ```text
-code/catalog 修复
-smoke 或 pending visual gate 验证
-visual review 记录
-preview 小文件保存
-相关 skill lessons 更新
-GitHub 同步
+generated_scenes/
+  apple_plate_scene.py
+  laptop_knife_scene.py
+```
+
+建议接口：
+
+```python
+def load_scene(task, placement_spec=None):
+    """Load generated tabletop scene into a RoboTwin task instance."""
+    ...
+    return {
+        "apple_1": apple_actor,
+        "plate_1": plate_actor,
+    }
+```
+
+或者：
+
+```python
+class ApplePlateScene:
+    scene_name = "apple_plate_scene"
+
+    def load(self, task):
+        ...
+        return task.generated_scene_objects
+```
+
+下游 task 的使用方式：
+
+```python
+from generated_scenes.apple_plate_scene import load_scene
+
+class pick_apple_to_plate(Base_Task):
+    def setup_demo(self, **kwargs):
+        super().setup_demo(**kwargs)
+        self.generated_scene_objects = load_scene(self)
+        self.apple = self.generated_scene_objects["apple_1"]
+        self.plate = self.generated_scene_objects["plate_1"]
+```
+
+这一步是我们相对旧版本最大的重构：从“生成 JSON preview”升级为“生成可被 RoboTwin task import 的 scene module”。
+
+### 3.5 Smoke / Visual / Repair Layer
+
+生成 scene module 后，需要像 `task_generation_mm.py` 一样做闭环：
+
+```text
+generate scene
+-> run smoke
+-> save observer/head camera
+-> visual/VLM review
+-> if fail, repair placement/catalog/scene code
+-> rerun
+```
+
+Visual/VLM Critic 检查：
+
+```text
+object presence
+object identity
+robot-centric left/right/front/back
+table contact
+penetration
+floating
+orientation
+occlusion
+prompt match
+```
+
+失败记录建议：
+
+```json
+{
+  "attempt": 1,
+  "failure_source": "visual_review",
+  "failure_summary": "basket penetrates the table and appears sideways",
+  "repair_target": "asset_catalogs/robotwin_tabletop_assets_master.json",
+  "repair_action": "update 110_basket placement_defaults.qpos",
+  "rerun_status": "pending"
+}
 ```
 
 ---
 
-## 12. 当前 TODO
+## 4. 坐标系和方位规则
 
-### High priority
+这是必须固定的约束。
 
-- [x] 定义 TabletopPlacementSpec v0：`harness/schemas.py`。
-- [x] 定义 asset catalog master + prompt case sample：`asset_catalogs/robotwin_tabletop_assets_master.json`、`asset_catalogs/prompt_cases/apple_plate.json`。
-- [x] 选定第一个 placement prompt：an apple and a plate on the table。
-- [x] 确认 RoboTwin 基础资产库中有 apple / plate：`035_apple`、`003_plate`。
-- [x] 写 Designer prompt：`prompts/designer_prompt.md`。
-- [x] 写 apple-and-plate Designer initial PlacementSpec：`placements/apple_plate_table/designer_initial_placement.json`。
-- [x] 写 Critic prompt：`prompts/critic_prompt.md`。
-- [x] 写 apple-and-plate Critic static review：`placements/apple_plate_table/critic_review.json`。
-- [x] 写 Orchestrator prompt：`prompts/orchestrator_prompt.md`。
-- [x] 输出 final static placement：`placements/apple_plate_table/final_placement.json`。
-- [x] 输出 validation plan：`placements/apple_plate_table/validation_plan.json`。
-- [x] 写 PlacementSpec validator：`harness/schemas.py`。
-- [x] 设计 MCP-lite / CLI tool interface：`mcp_lite/tools.py`，包含 asset、validation、smoke、render artifact、visual review。
-- [x] 把 Designer / Critic / Orchestrator prompts 迁移成 skill 初版：`skills/design-tabletop-placement`、`skills/critique-tabletop-placement`、`skills/orchestrate-placement-pipeline`。
-- [x] 写 harness/run_placement_pipeline.py，一条命令从 prompt 跑到 preview：`harness/run_placement_pipeline.py`。
-- [x] 写顶层 handoff skill：`skills/generate-robotwin-tabletop-scene`，用于让另一个 agent 从新 prompt 跑完整 scene generation 流程。
+RoboTwin `code_gen/prompt.py` 里写到：
 
-### Medium priority
+```text
+world x positive = right
+world y positive = front
+world z positive = up
+```
 
-- [x] 写 RoboTwin placement loader / smoke runner：`scripts/run_robotwin_placement_smoke.py`。
-- [x] 跑 apple/plate scene load smoke。
-- [x] 保存 validation report、图片和视频。
-- [ ] 写下游 task 消费 scene 的接口说明。
+我们项目的自然语言方位规则：
 
-### Lower priority
+```text
+left / right / front / back 默认以机器人或双臂第一视角为准。
+除非 prompt 明确指定 camera view、observer view、user view 或 object-local frame。
+```
 
-- [ ] 接入 VLM / embedding 做 asset retrieval。
-- [ ] 生成多种 placement prompt。
-- [ ] 接入 external policy eval。
-- [ ] 做 success/failure evaluator。
-- [ ] 把 CLI harness 包装成正式 MCP server。
-- [ ] 接入 Qwen / OpenAI / Claude / local vLLM backend。
+这意味着：
+
+```text
+"a laptop is on the right side of a knife"
+-> laptop 应放在机器人第一视角的 knife 右侧
+```
+
+不能再只看 `observer_camera.png` 的屏幕左右来决定语义是否正确，因为 observer camera 可能镜像或旋转。
 
 ---
 
-## 13. 风险和判断
+## 5. Agents 分工
+
+### 5.1 Asset Grounding Agent
+
+负责从自然语言中抽取资产 mention，并匹配到 master catalog。
+
+输出：
+
+```text
+asset_grounding.json
+prompt_cases/<case>.json
+```
+
+### 5.2 Designer Agent
+
+负责从 prompt case 和 spatial relations 生成初始 `TabletopPlacementSpec`。
+
+输出：
+
+```text
+designer_initial_placement.json
+```
+
+### 5.3 Static Critic
+
+负责检查：
+
+```text
+schema
+asset exists
+model_id exists
+pose bounds
+approx collision
+stable_on_table metadata
+robot-centric spatial relation
+```
+
+### 5.4 Scene Code Generator
+
+负责把 `final_placement.json` 转成 Python scene/background module。
+
+输出：
+
+```text
+generated_scenes/<case>_scene.py
+```
+
+它只生成 scene loader，不生成 task `play_once()`。
+
+### 5.5 Visual/VLM Critic
+
+负责读取 smoke preview，判断场景是否真的符合 prompt 和物理直觉。
+
+输出：
+
+```text
+visual_review.json
+```
+
+### 5.6 Orchestrator
+
+负责调度整个闭环：
+
+```text
+asset grounding
+-> placement design
+-> static validation
+-> scene code generation
+-> smoke
+-> visual review
+-> repair / rerun / pass / blocker
+```
+
+---
+
+## 6. 推荐代码结构
+
+重构后推荐目录：
+
+```text
+asset_catalogs/
+  robotwin_tabletop_assets_master.json
+  prompt_cases/
+    apple_plate.json
+
+harness/
+  asset_catalog.py
+  asset_grounding.py
+  model_providers.py
+  schemas.py
+  scene_codegen.py
+  run_scene_generation_pipeline.py
+  run_placement_pipeline.py              # legacy-compatible, can remain for now
+
+mcp_lite/
+  tools.py
+
+generated_scenes/
+  apple_plate_scene.py
+
+scripts/
+  run_robotwin_placement_smoke.py
+  run_generated_scene_smoke.py           # future
+
+skills/
+  generate-robotwin-tabletop-scene/
+  ground-objects-to-robotwin-assets/
+  design-tabletop-placement/
+  critique-tabletop-placement/
+  orchestrate-placement-pipeline/
+  review-robotwin-smoke-preview/
+```
+
+推荐新主入口：
+
+```bash
+python harness/run_scene_generation_pipeline.py \
+  --prompt "an apple and a plate on the table" \
+  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
+  --robotwin-root ~/RoboTwin \
+  --out-dir runs/apple_plate_scene \
+  --run-smoke
+```
+
+pipeline 输出：
+
+```text
+runs/apple_plate_scene/
+  asset_grounding.json
+  prompt_case.json
+  designer_initial_placement.json
+  static_validation_initial.json
+  final_placement.json
+  generated_scene.py
+  smoke/
+  visual_review.json
+  scene_generation_summary.json
+```
+
+---
+
+## 7. 当前已经完成的基础
+
+已经完成：
+
+- [x] RoboTwin2 环境配置在 5090：`/data/sdb/zhengye/RoboTwin`。
+- [x] 项目仓库在 5090：`/data/sdb/zhengye/robotwin-text2env-demo`。
+- [x] GitHub repo：`https://github.com/yezheng04/robotwin-text2env-demo`。
+- [x] `TabletopPlacementSpec v0`：`harness/schemas.py`。
+- [x] master + prompt case asset catalog：
+  - `asset_catalogs/robotwin_tabletop_assets_master.json`
+  - `asset_catalogs/prompt_cases/apple_plate.json`
+  - `asset_catalogs/prompt_cases/vegetable_basket.json`
+  - `asset_catalogs/prompt_cases/laptop_knife.json`
+- [x] prompt case loader：`harness/asset_catalog.py`。
+- [x] deterministic reference provider：`harness/model_providers.py`。
+- [x] RoboTwin placement smoke runner：`scripts/run_robotwin_placement_smoke.py`。
+- [x] MCP-lite tools：`mcp_lite/tools.py`。
+- [x] 顶层 handoff skill：`skills/generate-robotwin-tabletop-scene/`。
+- [x] skill 中记录了 RoboTwin `code_gen` 可借鉴模式：
+  - `skills/generate-robotwin-tabletop-scene/references/robotwin-code-gen-patterns.md`。
+- [x] 已验证 prompt cases 可静态通过：
+  - apple/plate
+  - vegetable/basket
+  - laptop/knife
+- [x] 已明确方位判断采用机器人/双臂第一视角。
+
+---
+
+## 8. 下一步 TODO
+
+### High Priority
+
+- [ ] 写 `harness/asset_grounding.py`：
+  - 输入自然语言 prompt + master catalog。
+  - 输出 `asset_grounding.json`。
+  - 自动创建 prompt case JSON。
+  - 先支持 exact alias / semantic / tag match，再预留 LLM backend。
+
+- [ ] 定义 `AssetGroundingResult v0` schema。
+
+- [ ] 写 `harness/scene_codegen.py`：
+  - 输入 `final_placement.json`。
+  - 输出 `generated_scenes/<case>_scene.py`。
+  - 只生成 `load_scene(task)` 或 scene class，不生成 task `play_once()`。
+
+- [ ] 写 `harness/run_scene_generation_pipeline.py`：
+  - 串起 asset grounding、prompt case、placement、scene codegen、smoke、visual review。
+  - 逐步替代当前 `run_placement_pipeline.py`。
+
+- [ ] 写第一个 generated scene module：
+  - `generated_scenes/apple_plate_scene.py`。
+
+- [ ] 更新 smoke runner，让它能直接测试 generated scene module，而不只测试 `PlacementSpec`。
+
+### Medium Priority
+
+- [ ] 设计 visual/VLM review JSON schema。
+- [ ] 写 repair record schema。
+- [ ] 接入一个可替换 VLM backend：
+  - human/Codex visual reference
+  - OpenAI API
+  - Qwen-VL
+  - local VLM
+- [ ] 把 visual feedback 接回 Orchestrator repair loop。
+- [ ] 为 `apple_plate` 做一次完整 scene module smoke。
+
+### Lower Priority
+
+- [ ] 把 CLI harness 包成正式 MCP server。
+- [ ] 支持 larger asset library / thumbnail retrieval。
+- [ ] 接入 embedding / CLIP / SigLIP / VLM retrieval。
+- [ ] 接下游 task 消费 scene 的示例。
+- [ ] 接 external policy evaluation。
+
+---
+
+## 9. 最小交付物定义
+
+重构后的最小可交付物：
+
+```text
+1. prompt:
+   "an apple and a plate on the table"
+
+2. asset grounding:
+   runs/apple_plate_scene/asset_grounding.json
+
+3. prompt case:
+   asset_catalogs/prompt_cases/apple_plate.json
+
+4. placement:
+   runs/apple_plate_scene/final_placement.json
+
+5. generated scene module:
+   generated_scenes/apple_plate_scene.py
+
+6. RoboTwin smoke:
+   runs/apple_plate_scene/smoke/smoke_report.json
+   runs/apple_plate_scene/smoke/observer_camera.png
+   runs/apple_plate_scene/smoke/head_camera.png
+
+7. visual review:
+   runs/apple_plate_scene/visual_review.json
+
+8. summary:
+   runs/apple_plate_scene/scene_generation_summary.json
+```
+
+验收标准：
+
+```text
+static validation pass
+scene module imports successfully
+RoboTwin smoke pass
+preview contains requested objects
+robot-centric spatial relation correct
+no obvious penetration/floating/orientation failure
+visual/VLM review pass
+```
+
+---
+
+## 10. 风险和处理
 
 ### Risk 1: 又滑回 task generation
 
-处理方式：
+处理：
 
-- 文档和 README 明确：项目主输出是 placement spec / placed scene。
-- PlacementSpec 不包含 `play_once()` / `check_success()`。
-- RoboTwin task 是下游消费者，不是当前主目标。
+- scene code generator 只允许生成 `load_scene(task)`。
+- 禁止生成 `play_once()`。
+- 下游 task 可以消费 scene，但不是本项目主输出。
 
-### Risk 2: asset 语义匹配不准
+### Risk 2: asset grounding 错误
 
-处理方式：
+处理：
 
-- asset catalog 必须包含 category、tags、thumbnail。
-- Critic 检查 asset 是否满足 prompt。
-- 后续用 VLM/embedding 辅助 retrieval。
+- 先 exact alias / semantic_name / tag match。
+- LLM 只能从 catalog asset_id 中选择。
+- 不确定就输出 `unmatched_mentions`。
+- 不允许编造 asset_id。
 
-### Risk 3: pose 语义不准
+### Risk 3: 方位坐标混乱
 
-处理方式：
+处理：
 
-- 明确 tabletop coordinate convention。
-- left/right/front/back 映射到 workspace regions。
-- validator 检查 spatial relation。
+- 自然语言方位默认机器人/双臂第一视角。
+- RoboTwin world frame 写入 prompt 和 schema。
+- visual review 不能只按 observer screen left/right 判断。
 
-### Risk 4: 生成 scene 物理不可用
+### Risk 4: JSON 通过但视觉失败
 
-处理方式：
+处理：
 
-- static bbox validation。
-- RoboTwin load check。
-- stability check。
-- collision check。
+- smoke pass 不等于 visual pass。
+- 必须有 human/VLM/Codex visual reference review。
+- 失败原因进入 repair record。
 
-### Risk 5: 场景可用但对机器人任务没有价值
+### Risk 5: scene module 和 RoboTwin API 不兼容
 
-处理方式：
+处理：
 
-- PlacementSpec 加 `downstream_task_hints`。
-- 生成时保留 reachability。
-- 用简单 pick-and-place task 做 sanity check。
-
-### Risk 6: MCP / skill / harness 过早复杂化
-
-处理方式：
-
-- 先做 CLI harness，再包 MCP。
-- 先用 reference artifacts / mock provider，再接真实模型 API。
-- 每个 tool 都要求有输入 schema、输出 schema 和最小测试。
-- 不把 RoboTwin 大资产、data、logs、HDF5 纳入 repo。
-
-### Risk 7: Static Critic 误把视觉失败当作通过
-
-2026-07-01 的 vegetable/basket 测试暴露了这个问题：static validation 和 RoboTwin smoke 都可能通过，但 basket 在 preview 里仍然可能出现朝向错误或穿模。这个问题不能只靠 JSON validator 解决。
-
-处理方式：
-
-- Critic 必须分成 static Critic 和 visual Critic / VLM Critic。
-- `smoke pass` 只表示 RoboTwin 能加载、能渲染，不等于 scene visually valid。
-- pipeline 默认状态改为 `pending_visual_review`，直到 human / VLM / Codex visual reference 明确给出 pass。
-- visual Critic 必须检查 object identity、orientation、table contact、penetration、floating、occlusion 和 prompt match。
-- 对资产库中坐标系特殊的资产，必须把 `placement_defaults.qpos` 等 pose hint 写进 asset catalog，而不是靠 Designer 临场猜。
+- scene codegen 应该复用现有 smoke runner 中已经验证过的 loader 逻辑。
+- 先生成最小 `load_scene(task)`，不要生成复杂 class hierarchy。
+- 每个 generated scene module 必须 import test。
 
 ---
 
-## 14. 远程环境状态
+## 11. 远程环境和同步规则
 
 默认远程路径：
 
@@ -960,18 +668,42 @@ RoboTwin = /data/sdb/zhengye/RoboTwin
 project repo = /data/sdb/zhengye/robotwin-text2env-demo
 ```
 
-VS Code Remote 注意：
+GitHub：
 
-- 不要打开 `/data/sdb` 这种超大根目录。
-- 只打开项目子目录或 RoboTwin 子目录。
-- 排除 `.git`、`assets`、`data`、`outputs`、`checkpoints`、`logs`、`wandb` 等目录，避免 CPU 占用过高。
+```text
+https://github.com/yezheng04/robotwin-text2env-demo
+branch: main
+```
+
+远程连接注意事项：
+
+```text
+不要打开 /data/sdb 这种大根目录。
+只打开具体项目目录。
+搜索时排除 data、datasets、outputs、checkpoints、logs、wandb、venv、node_modules、__pycache__。
+中间测试 runs 用完要删除。
+不要提交 HDF5、完整 runs、大视频、大资产文件。
+```
 
 ---
 
-## 15. References
+## 12. 现在最应该做的第一步
 
-- SceneSmith project page: https://scenesmith.github.io/
-- SceneSmith repo: https://github.com/nepfaff/scenesmith
-- RoboTwin project page: https://robotwin-platform.github.io/
-- RoboTwin official repo: https://github.com/robotwin-Platform/robotwin
-- RoboTwin documentation: https://robotwin-platform.github.io/doc/index.html
+从重构角度，下一步最应该做：
+
+```text
+Step 1: Asset Grounding Agent
+```
+
+具体任务：
+
+```text
+1. 写 AssetGroundingResult v0 schema。
+2. 写 deterministic asset grounding：
+   prompt mention -> master catalog alias/tag match。
+3. 生成 runs/<case>/asset_grounding.json。
+4. 自动生成 asset_catalogs/prompt_cases/<case>.json。
+5. 把这个步骤接到新的 run_scene_generation_pipeline.py 开头。
+```
+
+这一步完成后，整个系统才真正从“自然语言”开始，而不是手写 prompt case。
