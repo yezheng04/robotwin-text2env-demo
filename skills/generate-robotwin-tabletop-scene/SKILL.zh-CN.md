@@ -9,6 +9,7 @@
 - `scripts/run_robotwin_placement_smoke.py`：真正把场景加载到 RoboTwin 并渲染 preview。
 - `asset_catalogs/`：prompt 相关 asset metadata 和 placement defaults。
 - `skills/` 下的细分 skill：Designer、Critic、Orchestrator、asset grounding、smoke review。
+- RoboTwin `code_gen/` 的结构化输入、仿真反馈、视觉观察和迭代修复模式。
 
 前提：agent 在 `robotwin-text2env-demo` repo 中工作，用户已经有 RoboTwin 环境，例如 `~/RoboTwin`。如果缺少 repo 组件，应先让用户提供 repo 或 clone GitHub repo。
 
@@ -30,6 +31,7 @@
 - `references/new-prompt-workflow.md`：端到端命令和输出 artifact。
 - `references/asset-catalog-rules.md`：如何创建 catalog，如何处理 rigid/articulated 资产。
 - `references/visual-review-gate.md`：如何判断 pass/pending/fail，如何写 visual review JSON。
+- `references/robotwin-code-gen-patterns.md`：哪些 RoboTwin `code_gen/` 思路可以借鉴，哪些 task-code-generation 部分不要照搬。
 - `references/known-pitfalls.md`：apple/plate、vegetable/basket、laptop/knife 中踩过的坑。
 
 ## 状态规则

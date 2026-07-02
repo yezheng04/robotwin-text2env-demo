@@ -12,6 +12,7 @@ Use this skill as the top-level workflow for a new tabletop placement prompt. It
 - `scripts/run_robotwin_placement_smoke.py` for RoboTwin loading and preview rendering.
 - `asset_catalogs/` for prompt-specific asset metadata and placement defaults.
 - The focused skills under `skills/` for Designer, Critic, Orchestrator, asset grounding, and smoke review behavior.
+- RoboTwin's `code_gen/` pattern as inspiration for structured inputs, simulator feedback, visual observation, and iterative repair.
 
 This skill assumes the agent is working in the `robotwin-text2env-demo` repo and the user has a RoboTwin install such as `~/RoboTwin`. If the repo components are missing, ask for the repo or clone it before running.
 
@@ -33,6 +34,7 @@ Read these only as needed:
 - `references/new-prompt-workflow.md`: exact end-to-end commands and artifact expectations.
 - `references/asset-catalog-rules.md`: how to build prompt-specific catalogs and handle rigid/articulated assets.
 - `references/visual-review-gate.md`: how to decide pass/pending/fail and write visual review JSON.
+- `references/robotwin-code-gen-patterns.md`: which RoboTwin `code_gen/` ideas to reuse and which task-code-generation parts to avoid.
 - `references/known-pitfalls.md`: lessons learned from apple/plate, vegetable/basket, laptop/knife runs.
 
 ## Status Rules
