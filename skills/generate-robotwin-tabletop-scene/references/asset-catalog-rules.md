@@ -1,6 +1,33 @@
 # Asset Catalog Rules
 
-Asset catalogs are the bridge from natural language to RoboTwin assets. A new prompt usually needs a prompt-specific catalog before the harness can run.
+Asset catalogs are the bridge from natural language to RoboTwin assets. Keep reusable asset metadata in the master catalog and use small prompt-case catalogs to select assets for one prompt.
+
+## File Layout
+
+```text
+asset_catalogs/
+  robotwin_tabletop_assets_master.json
+  prompt_cases/
+    apple_plate.json
+    vegetable_basket.json
+    laptop_knife.json
+```
+
+Use `robotwin_tabletop_assets_master.json` for reusable asset metadata such as aliases, model ids, scale, loader hints, qpos defaults, stability notes, and affordances.
+
+Use `prompt_cases/<short_prompt>.json` for prompt-specific selection:
+
+```json
+{
+  "catalog_version": "robotwin.tabletop_asset_catalog_case.v0",
+  "base_catalog": "../robotwin_tabletop_assets_master.json",
+  "mvp_prompt": "a laptop is on the right side of a knife",
+  "selected_asset_ids": ["015_laptop", "034_knife"],
+  "entry_overrides": {}
+}
+```
+
+The harness expands prompt cases into the legacy `entries` shape before Designer, Critic, validation, and smoke run.
 
 ## Required Entry Fields
 
@@ -78,5 +105,6 @@ Example: `015_laptop` is articulated/URDF and should not use rigid `create_actor
 
 - Do not invent asset ids.
 - Do not omit `asset_type`.
+- Do not copy the full master catalog for each prompt.
 - Do not hide asset-specific pose fixes in ad hoc prompt code when they belong in `placement_defaults`.
 - Do not assume a smoke pass means the visual orientation is right.

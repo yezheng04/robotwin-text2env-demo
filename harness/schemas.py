@@ -6,9 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 REQUIRED_TOP_LEVEL_FIELDS = [
     "schema_version",
@@ -216,9 +220,11 @@ def main() -> int:
     parser.add_argument("--out")
     args = parser.parse_args()
 
+    from harness.asset_catalog import load_asset_catalog
+
     report = validate_placement_spec(
         read_json(Path(args.placement)),
-        read_json(Path(args.asset_catalog)),
+        load_asset_catalog(Path(args.asset_catalog)),
         robotwin_root=args.robotwin_root,
     )
     if args.out:

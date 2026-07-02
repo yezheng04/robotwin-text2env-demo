@@ -24,14 +24,14 @@ grep -RIn "<object term>" robotwin_asset_inventory.md asset_catalogs
 find ~/RoboTwin/assets/objects -maxdepth 1 -type d | grep -Ei "<object term>"
 ```
 
-If no prompt-specific catalog exists, create `asset_catalogs/robotwin_tabletop_assets_<short_prompt>.json`.
+If no prompt-specific catalog exists, first add any new reusable assets to `asset_catalogs/robotwin_tabletop_assets_master.json`, then create a small prompt case at `asset_catalogs/prompt_cases/<short_prompt>.json`.
 
 ## 3. Static Run
 
 ```bash
 python harness/run_placement_pipeline.py \
   --prompt "<prompt>" \
-  --asset-catalog asset_catalogs/<catalog>.json \
+  --asset-catalog asset_catalogs/prompt_cases/<short_prompt>.json \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name>
@@ -50,7 +50,7 @@ Inspect:
 ```bash
 python harness/run_placement_pipeline.py \
   --prompt "<prompt>" \
-  --asset-catalog asset_catalogs/<catalog>.json \
+  --asset-catalog asset_catalogs/prompt_cases/<short_prompt>.json \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name> \
@@ -97,7 +97,7 @@ Use human/Codex visual reference/external VLM. Write a report like:
 ```bash
 python harness/run_placement_pipeline.py \
   --prompt "<prompt>" \
-  --asset-catalog asset_catalogs/<catalog>.json \
+  --asset-catalog asset_catalogs/prompt_cases/<short_prompt>.json \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/<run_name>_visual_pass \

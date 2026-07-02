@@ -15,10 +15,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from harness.schemas import read_json, validate_placement_spec, write_json
+from harness.asset_catalog import load_asset_catalog
 
 
 def list_assets(catalog_path: Path) -> dict[str, Any]:
-    catalog = read_json(catalog_path)
+    catalog = load_asset_catalog(catalog_path)
     return {
         "assets": [
             {
@@ -34,7 +35,7 @@ def list_assets(catalog_path: Path) -> dict[str, Any]:
 
 
 def get_asset_metadata(catalog_path: Path, asset_id: str) -> dict[str, Any]:
-    catalog = read_json(catalog_path)
+    catalog = load_asset_catalog(catalog_path)
     for entry in catalog.get("entries", []):
         if entry.get("asset_id") == asset_id:
             return entry
@@ -165,7 +166,7 @@ def main() -> int:
     elif args.command == "get-asset-metadata":
         result = get_asset_metadata(Path(args.asset_catalog), args.asset_id)
     elif args.command == "validate-placement":
-        result = validate_placement_spec(read_json(Path(args.placement)), read_json(Path(args.asset_catalog)), robotwin_root=args.robotwin_root)
+        result = validate_placement_spec(read_json(Path(args.placement)), load_asset_catalog(Path(args.asset_catalog)), robotwin_root=args.robotwin_root)
         if args.out:
             write_json(Path(args.out), result)
     elif args.command == "run-smoke":

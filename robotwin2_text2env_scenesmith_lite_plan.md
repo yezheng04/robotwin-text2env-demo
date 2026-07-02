@@ -385,7 +385,7 @@ policy = external pick-and-place policy
 ### 8.1 必须完成
 
 - [x] 定义 TabletopPlacementSpec v0：`harness/schemas.py`。
-- [x] 定义 asset catalog entry format，并建立 MVP 小样例：`asset_catalogs/robotwin_tabletop_assets_sample.json`。
+- [x] 定义 asset catalog entry format，并建立 master + prompt case 结构：`asset_catalogs/robotwin_tabletop_assets_master.json`、`asset_catalogs/prompt_cases/apple_plate.json`。
 - [x] 选一个简单 placement prompt：an apple and a plate on the table。
 - [x] 准备或指定 apple / plate assets：`035_apple`、`003_plate`。
 - [x] 写 Designer prompt：`prompts/designer_prompt.md`。
@@ -414,7 +414,7 @@ policy = external pick-and-place policy
 
 ```text
 1. TabletopPlacementSpec schema draft
-2. asset catalog sample
+2. asset catalog master + prompt case sample
 3. Designer prompt draft
 4. apple-and-plate Designer initial placement spec
 5. Critic prompt and static review
@@ -451,7 +451,8 @@ an apple and a plate on the table
 已建立第一个 MVP asset catalog：
 
 ```text
-asset_catalogs/robotwin_tabletop_assets_sample.json
+asset_catalogs/robotwin_tabletop_assets_master.json
+asset_catalogs/prompt_cases/apple_plate.json
 ```
 
 先不接大资产库，当前 catalog 只覆盖 apple / plate 两个资产，用于验证 agent 能完成最小 asset grounding：
@@ -731,7 +732,7 @@ Harness 是端到端 runner，目标是一条命令从自然语言跑到 scene p
 ```bash
 python harness/run_placement_pipeline.py \
   --prompt "an apple and a plate on the table" \
-  --asset-catalog asset_catalogs/robotwin_tabletop_assets_sample.json \
+  --asset-catalog asset_catalogs/prompt_cases/apple_plate.json \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/apple_plate_table
@@ -782,6 +783,11 @@ harness/
   schemas.py
 
 asset_catalogs/
+  robotwin_tabletop_assets_master.json
+  prompt_cases/
+    apple_plate.json
+    vegetable_basket.json
+    laptop_knife.json
 placements/
 previews/
 reports/
@@ -844,7 +850,7 @@ GitHub 同步
 ### High priority
 
 - [x] 定义 TabletopPlacementSpec v0：`harness/schemas.py`。
-- [x] 定义 asset catalog sample：`asset_catalogs/robotwin_tabletop_assets_sample.json`。
+- [x] 定义 asset catalog master + prompt case sample：`asset_catalogs/robotwin_tabletop_assets_master.json`、`asset_catalogs/prompt_cases/apple_plate.json`。
 - [x] 选定第一个 placement prompt：an apple and a plate on the table。
 - [x] 确认 RoboTwin 基础资产库中有 apple / plate：`035_apple`、`003_plate`。
 - [x] 写 Designer prompt：`prompts/designer_prompt.md`。

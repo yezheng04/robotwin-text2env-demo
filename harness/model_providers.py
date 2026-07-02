@@ -10,7 +10,7 @@ from typing import Any
 
 DEFAULT_WORKSPACE = {
     "surface": "table",
-    "coordinate_convention": "tabletop_local; x is left/right across the table, y is front/back on the table, z is height; the RoboTwin adapter maps this frame into the simulator task frame",
+    "coordinate_convention": "robot_first_person_tabletop; x is robot-left/right across the table, y is robot-front/back on the table, z is height; the RoboTwin adapter maps this frame into the simulator task frame",
     "bounds": {"x": [-0.45, 0.45], "y": [-0.35, 0.25], "z": [0.74, 1.1]},
     "spatial_regions": {
         "left_reachable_area": {
@@ -126,15 +126,12 @@ def design_initial_spec(
     if relation:
         left_pose = [-0.22, -0.04, 0.76]
         right_pose = [0.23, -0.04, 0.755]
-        # The default RoboTwin observer camera mirrors tabletop-local x in the
-        # rendered image. For language prompts, satisfy visual left/right as
-        # judged from the preview image because visual Critic/VLM is the gate.
         if relation["type"] == "right_of":
-            relation_slots[relation["subject_asset_id"]] = ("left_reachable_area", left_pose)
-            relation_slots[relation["object_asset_id"]] = ("right_reachable_area", right_pose)
-        else:
             relation_slots[relation["subject_asset_id"]] = ("right_reachable_area", right_pose)
             relation_slots[relation["object_asset_id"]] = ("left_reachable_area", left_pose)
+        else:
+            relation_slots[relation["subject_asset_id"]] = ("left_reachable_area", left_pose)
+            relation_slots[relation["object_asset_id"]] = ("right_reachable_area", right_pose)
     objects = []
     for idx, entry in enumerate(selected):
         model_id = entry.get("default_model_id", 0)
@@ -239,7 +236,7 @@ def design_initial_spec(
         "designer_notes": [
             "codex_reference is a deterministic reference provider, not a live LLM call.",
             "Future providers should keep the same output schema and validation gate.",
-            "For lateral language relations, default RoboTwin observer-camera visual left/right is prioritized because visual Critic/VLM is the acceptance gate.",
+            "For lateral language relations, left/right/front/back are interpreted from the robot or dual-arm first-person viewpoint unless the prompt explicitly names another frame.",
         ],
     }
 

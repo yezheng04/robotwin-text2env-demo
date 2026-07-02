@@ -125,7 +125,8 @@ pick the apple and place it on the plate
 First deliverables:
 
 - RoboTwin asset inventory for prompt writing: `robotwin_asset_inventory.md`.
-- Asset catalog sample: `asset_catalogs/robotwin_tabletop_assets_sample.json`.
+- Master asset catalog: `asset_catalogs/robotwin_tabletop_assets_master.json`.
+- Prompt case catalog sample: `asset_catalogs/prompt_cases/apple_plate.json`.
 - Designer prompt: `prompts/designer_prompt.md`.
 - Designer initial placement: `placements/apple_plate_table/designer_initial_placement.json`.
 - Critic prompt: `prompts/critic_prompt.md`.
@@ -149,7 +150,7 @@ After RoboTwin is installed at `~/RoboTwin`, run:
 ```bash
 python harness/run_placement_pipeline.py \
   --prompt "an apple and a plate on the table" \
-  --asset-catalog asset_catalogs/robotwin_tabletop_assets_sample.json \
+  --asset-catalog asset_catalogs/prompt_cases/apple_plate.json \
   --robotwin-root ~/RoboTwin \
   --model-provider codex_reference \
   --out-dir runs/apple_plate_table_harness \

@@ -19,6 +19,7 @@ from harness.model_providers import (
     orchestrate_final_spec,
     validation_plan_for,
 )
+from harness.asset_catalog import load_asset_catalog
 from harness.schemas import read_json, validate_placement_spec, write_json
 from mcp_lite.tools import get_smoke_artifacts, run_robotwin_smoke, visual_review
 
@@ -33,7 +34,7 @@ def _rel(path: Path) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a placement prompt to RoboTwin preview.")
     parser.add_argument("--prompt", required=True)
-    parser.add_argument("--asset-catalog", default="asset_catalogs/robotwin_tabletop_assets_sample.json")
+    parser.add_argument("--asset-catalog", default="asset_catalogs/prompt_cases/apple_plate.json")
     parser.add_argument("--robotwin-root", default=str(Path.home() / "RoboTwin"))
     parser.add_argument("--model-provider", default="codex_reference")
     parser.add_argument("--out-dir", required=True)
@@ -59,7 +60,7 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    catalog = read_json(asset_catalog_path)
+    catalog = load_asset_catalog(asset_catalog_path)
     summary: dict[str, Any] = {
         "schema_version": "robotwin.tabletop_placement_pipeline_summary.v0",
         "prompt": args.prompt,

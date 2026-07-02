@@ -46,4 +46,4 @@ When failing, specify:
 - object id
 - visible problem
 - likely fix: qpos, xyz, loader, static flag, scale, model id, or catalog default
-- whether the fix belongs in code or `asset_catalogs/<catalog>.json`
+- whether the fix belongs in code, `asset_catalogs/robotwin_tabletop_assets_master.json`, or a prompt case override under `asset_catalogs/prompt_cases/`
