@@ -20,14 +20,16 @@ static pass + smoke pass + visual review pass = full pass
 - no severe occlusion
 - object identity is recognizable enough for the prompt
 
-## Left/Right Prompts
+## Direction Frame
 
-Judge left/right in the preview image frame, not only in tabletop-local coordinates. The default RoboTwin observer camera can mirror local x.
+Judge natural-language directions from the robot / dual-arm first-person viewpoint. The external observer camera can mirror or rotate what the robot considers left/right/front/back, so do not accept or reject a scene only by screen-space left/right in `observer_camera.png`.
+
+When reviewing a prompt such as `a laptop is on the right side of a knife`, check whether the laptop is on the robot's right side relative to the knife. If the observer image appears reversed, use head/robot-view evidence or RoboTwin pose coordinates to decide and repair.
 
 ## Failure Examples
 
 - Basket appears sideways or penetrates the table.
-- Laptop appears on the visual left when prompt says right of knife.
+- Laptop is placed on the robot's left when prompt says right of knife.
 - A support/container object is loaded dynamically and falls or rotates.
 - An articulated object is loaded through the rigid loader.
 

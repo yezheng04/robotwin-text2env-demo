@@ -86,6 +86,7 @@ python harness/run_placement_pipeline.py \
 
 - Do not invent RoboTwin asset ids or model ids.
 - Do not rely on object mention order for spatial relations.
+- Interpret natural-language directions from the robot / dual-arm first-person viewpoint. Left, right, front, and back mean the robot's left/right/front/back unless the prompt explicitly names another frame of reference.
 - Do not mark a scene pass without visual review.
 - Do not commit large generated data such as HDF5, full `runs/`, checkpoints, or RoboTwin assets.
 - Do keep small preview evidence and prompt-specific asset catalogs when useful.

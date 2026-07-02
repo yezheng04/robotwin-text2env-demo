@@ -29,9 +29,9 @@ Use the RoboTwin `open_laptop` convention:
 
 `034_knife` is rigid but metadata says `stable=false`. For scene-background placement, set it static and require visual review.
 
-## Local Coordinates vs Visual Coordinates
+## Direction Reference Frame
 
-For left/right language, final acceptance is the preview image. The observer camera can make tabletop-local x appear reversed.
+For left/right/front/back language, the semantic reference frame is the robot / dual-arm first-person viewpoint. The observer camera can make the robot's left/right appear reversed or rotated on screen, so visual review must check the robot-centric relation rather than raw screen-space direction.
 
 ## Relation Parsing
 

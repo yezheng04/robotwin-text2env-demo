@@ -45,6 +45,7 @@
 
 - 不要编造 RoboTwin asset id 或 model id。
 - 不要按物体出现顺序判断空间关系。
+- 自然语言中的方位判断必须以机器人/双臂第一视角为准。left/right/front/back 默认表示机器人自己的左/右/前/后，除非 prompt 明确指定其他参考系。
 - 没有视觉审核，不要标记 pass。
 - 不要提交 HDF5、完整 `runs/`、checkpoints 或 RoboTwin assets。
 - 可以保留小 preview evidence 和 prompt-specific catalog。

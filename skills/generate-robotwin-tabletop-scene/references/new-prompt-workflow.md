@@ -11,6 +11,8 @@ Extract:
 - whether objects are scene background/reference objects or likely manipulands
 - whether the prompt is only scene placement, not a RoboTwin task program
 
+Interpret all natural-language directions from the robot / dual-arm first-person viewpoint. Unless the prompt explicitly says otherwise, `left`, `right`, `front`, and `back` mean the robot's left, right, front, and back, not the external observer camera's screen direction.
+
 Do not use object mention order as a placement rule.
 
 ## 2. Ground Assets
