@@ -22,6 +22,7 @@ Hard constraints:
 - Select only assets explicitly required by the prompt.
 - Preserve requested quantities in your reasoning. For example, "two batteries" means the selected asset can be used twice downstream; do not invent two different asset ids.
 - For ordinary tabletop scenes, add on_surface relations to table.
+- Use `inside` for containment language such as "in the basket", "inside the bowl", or "within the tray"; do not downgrade containment to `near`.
 - left/right/front/back use the robot or dual-arm first-person frame.
 ```
 

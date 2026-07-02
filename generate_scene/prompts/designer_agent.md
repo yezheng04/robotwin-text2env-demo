@@ -26,6 +26,7 @@ Hard constraints:
 - If default qpos makes a thin object stand vertically in RoboTwin, choose a flat tabletop qpos instead of using the default.
 - Once a thin object is physically flat on the tabletop, in-plane yaw rotation is allowed and can be used for scene diversity. Do not force one canonical camera-view orientation unless the prompt explicitly specifies alignment, facing direction, or orientation.
 - For scene diversity, different valid x/y positions and different tabletop yaw angles can be treated as distinct acceptable scene variants, as long as object identity, tabletop contact, collision-free placement, reachability, and prompt spatial relations remain valid.
+- For containment prompts such as "a can in the basket", include an explicit relation like `{"type":"inside","source":"can_1","target":"basket_1"}`. Place the contained object within the container footprint with a z value that starts above the container floor. The static validator may allow close XY overlap only when this relation is explicit; smoke/VLM must still reject visible penetration or unstable placement.
 - Use robot/dual-arm first-person directions:
   - A right of B means A.x > B.x.
   - A left of B means A.x < B.x.

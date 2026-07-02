@@ -19,6 +19,7 @@ Scope:
 - asset/model API usage
 - object poses
 - approximate collision
+- containment relations where close XY overlap is intentional but must still be checked later by smoke/VLM
 - tabletop stability
 - robot-first-person spatial relations
 - scene code generation readiness
@@ -54,4 +55,3 @@ Allowed verdict values:
 accept_for_next_stage
 repair_required
 ```
-

@@ -73,6 +73,23 @@ def _xy_radius(entry: dict[str, Any], model_id: int) -> float | None:
     return max(float(extents[0]), float(extents[1])) / 2.0
 
 
+def _containment_pairs(spec: dict[str, Any]) -> set[tuple[str, str]]:
+    pairs: set[tuple[str, str]] = set()
+    for relation in spec.get("relations", []):
+        if not isinstance(relation, dict):
+            continue
+        relation_type = str(relation.get("type", "")).lower()
+        source = relation.get("source")
+        target = relation.get("target")
+        if not source or not target:
+            continue
+        if relation_type in {"inside", "in", "contained_in", "within"}:
+            pairs.add((str(source), str(target)))
+        elif relation_type in {"contains", "container_for"}:
+            pairs.add((str(target), str(source)))
+    return pairs
+
+
 def validate_placement_spec(
     spec: dict[str, Any],
     catalog: dict[str, Any],
@@ -117,6 +134,7 @@ def validate_placement_spec(
 
     prompt = str(spec.get("language_prompt", "")).lower()
     object_positions: list[tuple[dict[str, Any], dict[str, Any], list[float], float | None]] = []
+    containment_pairs = _containment_pairs(spec)
 
     for obj in objects:
         obj_id = obj.get("id", "<missing>")
@@ -182,12 +200,17 @@ def validate_placement_spec(
                 continue
             distance = math.dist(xyz_a[:2], xyz_b[:2])
             clearance = distance - radius_a - radius_b
-            status = "pass" if clearance >= 0.01 else "fail"
+            is_containment_pair = (str(obj_a["id"]), str(obj_b["id"])) in containment_pairs or (
+                str(obj_b["id"]),
+                str(obj_a["id"]),
+            ) in containment_pairs
+            status = "pass" if clearance >= 0.01 or is_containment_pair else "fail"
+            suffix = " containment relation allows close XY overlap; smoke/VLM must verify no visible penetration." if is_containment_pair else ""
             _add(
                 checks,
                 f"approx_xy_collision:{obj_a['id']}:{obj_b['id']}",
                 status,
-                f"xy distance={distance:.3f}m, approximate clearance={clearance:.3f}m.",
+                f"xy distance={distance:.3f}m, approximate clearance={clearance:.3f}m.{suffix}",
             )
 
     if robotwin_root:

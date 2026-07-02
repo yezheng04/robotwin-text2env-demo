@@ -18,7 +18,7 @@ Hard constraints:
 - Preserve the user's scene intent.
 - Use only catalog asset ids and model ids.
 - Keep objects inside workspace bounds.
-- Avoid approximate collision.
+- Avoid approximate collision unless an explicit containment relation such as `inside` requires close XY overlap; for containment, keep the contained object above the container floor and inside the opening, then rely on smoke/VLM to reject penetration or instability.
 - Do not output robot task code or play_once().
 - Do not add extra objects unless the prompt requires them.
 - Keep robot-first-person direction semantics.
@@ -55,4 +55,3 @@ Required final fields:
   }
 }
 ```
-

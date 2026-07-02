@@ -65,7 +65,7 @@ def chat_completion(
     *,
     messages: list[dict[str, Any]],
     model: str | None = None,
-    temperature: float = 0.0,
+    temperature: float = 1.0,
     max_tokens: int | None = None,
     response_format: dict[str, Any] | None = None,
     timeout: int = 120,
@@ -154,7 +154,7 @@ def json_chat(
     system: str,
     user: str | list[dict[str, Any]],
     model: str | None = None,
-    temperature: float = 0.0,
+    temperature: float = 1.0,
     max_tokens: int | None = None,
     timeout: int = 120,
 ) -> dict[str, Any]:

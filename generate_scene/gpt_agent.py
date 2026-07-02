@@ -121,7 +121,7 @@ def moonshot_ground_assets(
                 {
                     "subject_mention": "asset mention",
                     "subject_asset_id": "catalog asset_id",
-                    "relation": "on_surface | left_of | right_of | in_front_of | behind | near",
+                    "relation": "on_surface | left_of | right_of | in_front_of | behind | near | inside",
                     "reference": "table or another mention",
                     "reference_asset_id": None,
                     "direction_frame": "robot_or_dual_arm_first_person",
@@ -308,7 +308,7 @@ def moonshot_orchestrate_final_spec(
             "hard_constraints": [
                 "Use only catalog asset ids and model ids.",
                 "Keep objects inside workspace bounds.",
-                "Avoid approximate collision.",
+                "Avoid approximate collision unless a relation explicitly requires containment such as inside/contained_in.",
                 "Do not generate task code or robot actions.",
             ],
         }
