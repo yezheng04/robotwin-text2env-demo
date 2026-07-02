@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from generate_scene.observation_agent import observe_scene_with_moonshot
 from generate_scene.schemas import read_json, validate_placement_spec, write_json
 from generate_scene.asset_catalog import load_asset_catalog
 
@@ -111,6 +112,9 @@ def get_smoke_artifacts(smoke_dir: Path) -> dict[str, Any]:
 
 
 def visual_review(smoke_dir: Path, prompt: str, mode: str = "required") -> dict[str, Any]:
+    if mode == "moonshot":
+        return observe_scene_with_moonshot(smoke_dir=smoke_dir, prompt=prompt)
+
     artifacts = get_smoke_artifacts(smoke_dir)
     missing = [name for name, exists in artifacts["exists"].items() if name != "observer_video" and not exists]
     if missing:
@@ -168,7 +172,7 @@ def main() -> int:
     p_visual = sub.add_parser("visual-review")
     p_visual.add_argument("--smoke-dir", required=True)
     p_visual.add_argument("--prompt", required=True)
-    p_visual.add_argument("--mode", choices=["required", "artifact_only"], default="required")
+    p_visual.add_argument("--mode", choices=["required", "artifact_only", "moonshot"], default="required")
 
     args = parser.parse_args()
 

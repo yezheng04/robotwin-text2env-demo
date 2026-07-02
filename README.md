@@ -1,116 +1,93 @@
 # RoboTwin Tabletop Scene Generation
 
-This repo is a SceneSmith-inspired tabletop scene/background generation harness for RoboTwin.
+Scene generation harness for RoboTwin tabletop environments.
 
-Given a natural-language scene prompt, the pipeline grounds objects to RoboTwin assets, designs tabletop poses, validates the placement, generates a reusable RoboTwin scene module, and optionally runs a RoboTwin smoke render.
-
-Current example:
+Given a natural-language prompt, the pipeline can:
 
 ```text
-an apple and a plate on the table
+discover assets from RoboTwin/assets/objects
+-> ground prompt objects to asset ids
+-> generate a TabletopPlacementSpec
+-> generate a RoboTwin scene Python module
+-> run RoboTwin smoke render
+-> review preview images with a VLM
+-> optionally repair and rerun
 ```
 
-Output:
+Current accepted example:
 
 ```text
-generated_scenes/apple_plate_scene.py
-runs/<case>/scene_generation_summary.json
-runs/<case>/smoke/observer_camera.png
-runs/<case>/smoke/head_camera.png
+a remote control next to the notebook
 ```
 
-## Start Here
-
-Read the full step-by-step workflow:
+## Repository Layout
 
 ```text
-docs/scene_generation_workflow.md
+generate_scene/                 # main Python package
+generate_scene/prompts/         # LLM/VLM behavior specs
+generated_scenes/               # checked-in generated scene examples
+asset_catalogs/                 # small fallback/sample catalogs
+docs/                           # workflow and Moonshot/Kimi backend docs
+previews/                       # small review images and JSON evidence
 ```
 
-That document explains, for every stage:
+## One Command
 
-- input
-- code or tool used
-- output
-- validation signal
-- where the artifact is saved
-
-## One-Command Run
-
-From this repo:
+On the 5090 machine:
 
 ```bash
-python generate_scene/run_scene_generation_pipeline.py \
-  --prompt "an apple and a plate on the table" \
-  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
-  --case-name apple_plate \
-  --robotwin-root ~/RoboTwin \
-  --generated-scene-dir generated_scenes \
-  --out-dir runs/apple_plate_scene \
-  --run-smoke
-```
+cd /data/sdb/zhengye/robotwin-text2env-demo
 
-On the 5090 machine, if RoboTwin's conda Python is not already active, use:
-
-```bash
 python3 generate_scene/run_scene_generation_pipeline.py \
-  --prompt "an apple and a plate on the table" \
-  --master-catalog asset_catalogs/robotwin_tabletop_assets_master.json \
-  --case-name apple_plate \
+  --prompt "a remote control next to the notebook" \
+  --case-name remote_control_notebook_kimi \
   --robotwin-root /data/sdb/zhengye/RoboTwin \
   --generated-scene-dir generated_scenes \
-  --out-dir runs/apple_plate_scene \
+  --out-dir runs/remote_control_notebook_kimi \
+  --discover-assets-from-robotwin \
+  --model-provider moonshot \
   --run-smoke \
+  --visual-review-mode moonshot \
+  --visual-repair-attempts 1 \
   --python-executable /data/sdb/zhengye/miniconda3/envs/RoboTwin/bin/python
 ```
 
-## Active Structure
+For another machine, replace `--robotwin-root` and `--python-executable` with that machine's RoboTwin paths.
 
-```text
-asset_catalogs/                         # RoboTwin asset metadata and prompt cases
-generate_scene/                         # Code_gen-style scene generation Python package
-generated_scenes/                       # generated reusable scene modules
-harness/                                # compatibility wrappers for older commands
-mcp_lite/                               # compatibility wrapper for tool-style usage
-scripts/                                # compatibility wrapper for the smoke runner
-skills/generate-robotwin-tabletop-scene/ # handoff skill for another Codex/agent
-previews/                               # small committed visual evidence only
-docs/                                  # workflow and repository documentation
+## API Key
+
+Do not commit API keys.
+
+Use one of:
+
+```bash
+export MOONSHOT_API_KEY="..."
 ```
 
-## Main Entry Points
+or create an ignored local file:
 
 ```text
-generate_scene/run_scene_generation_pipeline.py  # prompt -> generated scene -> optional smoke
-generate_scene/asset_grounding.py                # prompt assets -> RoboTwin asset ids
-generate_scene/scene_codegen.py                  # final placement -> generated scene module
-generate_scene/run_robotwin_placement_smoke.py   # RoboTwin render/smoke validation
+generate_scene/local_config.py
 ```
 
-## Current Project Plan
+with:
 
-The living project plan is:
+```python
+MOONSHOT_API_KEY = "..."
+```
+
+## Important Docs
 
 ```text
-robotwin2_text2env_scenesmith_lite_plan.md
+docs/scene_generation_workflow.md
+docs/moonshot_agent_backend.md
 ```
 
-The old Text2Env task-generation direction is no longer the main objective. The current objective is scene/background generation for downstream RoboTwin tasks or external policies.
+## Review Examples
 
-## Commit Policy
+```text
+previews/apple_plate_scene_module_smoke/
+previews/remote_control_notebook_flat_candidate/
+```
 
-Do commit:
-
-- source code
-- schemas
-- asset catalog samples
-- generated scene modules
-- small preview images and summary JSON needed for review
-
-Do not commit:
-
-- HDF5 datasets
-- full `runs/`
-- large videos
-- RoboTwin assets
-- checkpoints, logs, wandb, or install caches
+The remote-control/notebook example records an important learned rule: thin everyday objects such as notebooks, phones, cards, and remote controls should normally lie flat on the tabletop. In-plane yaw variation is acceptable scene diversity unless the prompt specifies orientation.

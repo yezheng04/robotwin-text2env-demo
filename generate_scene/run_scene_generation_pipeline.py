@@ -14,11 +14,19 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from generate_scene.asset_catalog import load_asset_catalog
+from generate_scene.asset_discovery import discover_robotwin_assets
 from generate_scene.asset_grounding import (
     ground_assets,
     prompt_case_from_grounding,
     slugify_prompt,
     validate_asset_grounding_result,
+)
+from generate_scene.gpt_agent import (
+    moonshot_critic_review,
+    moonshot_design_initial_spec,
+    moonshot_ground_assets,
+    moonshot_orchestrate_final_spec,
+    moonshot_repair_from_visual_review,
 )
 from generate_scene.model_providers import (
     critic_review_from_validation,
@@ -26,6 +34,7 @@ from generate_scene.model_providers import (
     orchestrate_final_spec,
     validation_plan_for,
 )
+from generate_scene.observation_agent import observe_scene_with_moonshot
 from generate_scene.scene_codegen import generate_scene_module
 from generate_scene.schemas import read_json, validate_placement_spec, write_json
 from generate_scene.tools import get_smoke_artifacts, run_robotwin_smoke, visual_review
@@ -45,10 +54,15 @@ def _case_base_catalog(case_path: Path, master_catalog_path: Path) -> str:
         return str(master_catalog_path.resolve())
 
 
+def _uses_moonshot(provider: str) -> bool:
+    return provider.lower() in {"moonshot", "kimi", "kimi_moonshot"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run prompt to generated RoboTwin scene module.")
     parser.add_argument("--prompt", required=True)
     parser.add_argument("--master-catalog", default="asset_catalogs/robotwin_tabletop_assets_master.json")
+    parser.add_argument("--discover-assets-from-robotwin", action="store_true")
     parser.add_argument("--prompt-case")
     parser.add_argument("--case-name")
     parser.add_argument("--overwrite-prompt-case", action="store_true")
@@ -63,16 +77,26 @@ def main() -> int:
     parser.add_argument("--video-frames", type=int, default=60)
     parser.add_argument("--fps", type=int, default=15)
     parser.add_argument("--python-executable", help="Python executable for RoboTwin smoke. Also configurable through ROBOTWIN_PYTHON.")
-    parser.add_argument("--visual-review-mode", choices=["required", "artifact_only"], default="required")
+    parser.add_argument("--visual-review-mode", choices=["required", "artifact_only", "moonshot"], default="required")
     parser.add_argument("--visual-review-report")
+    parser.add_argument("--visual-repair-attempts", type=int, default=0)
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     master_catalog_path = Path(args.master_catalog)
+    if args.discover_assets_from_robotwin:
+        master_catalog_path = out_dir / "robotwin_discovered_asset_catalog.json"
+        discovered_catalog = discover_robotwin_assets(Path(args.robotwin_root))
+        write_json(master_catalog_path, discovered_catalog)
     master_catalog = load_asset_catalog(master_catalog_path)
     case_name = args.case_name or slugify_prompt(args.prompt)
-    prompt_case_path = Path(args.prompt_case) if args.prompt_case else Path("asset_catalogs") / "prompt_cases" / f"{case_name}.json"
+    if args.prompt_case:
+        prompt_case_path = Path(args.prompt_case)
+    elif args.discover_assets_from_robotwin:
+        prompt_case_path = out_dir / "prompt_case_catalog.json"
+    else:
+        prompt_case_path = Path("asset_catalogs") / "prompt_cases" / f"{case_name}.json"
 
     summary: dict[str, Any] = {
         "schema_version": "robotwin.tabletop_scene_generation_summary.v0",
@@ -85,13 +109,22 @@ def main() -> int:
         "status": "started",
         "artifacts": {},
     }
+    if args.discover_assets_from_robotwin:
+        summary["artifacts"]["discovered_asset_catalog"] = _rel(master_catalog_path)
 
     try:
-        grounding = ground_assets(
-            prompt=args.prompt,
-            master_catalog=master_catalog,
-            master_catalog_path=_rel(master_catalog_path),
-        )
+        if _uses_moonshot(args.model_provider):
+            grounding = moonshot_ground_assets(
+                prompt=args.prompt,
+                master_catalog=master_catalog,
+                master_catalog_path=_rel(master_catalog_path),
+            )
+        else:
+            grounding = ground_assets(
+                prompt=args.prompt,
+                master_catalog=master_catalog,
+                master_catalog_path=_rel(master_catalog_path),
+            )
         grounding_validation = validate_asset_grounding_result(grounding, master_catalog)
         grounding["validation"] = grounding_validation
         grounding_path = out_dir / "asset_grounding.json"
@@ -120,12 +153,20 @@ def main() -> int:
         summary["artifacts"]["prompt_case_copy"] = _rel(case_copy_path)
 
         catalog = load_asset_catalog(prompt_case_path)
-        designer_spec = design_initial_spec(
-            prompt=args.prompt,
-            catalog=catalog,
-            asset_catalog_path=_rel(prompt_case_path),
-            model_provider=args.model_provider,
-        )
+        if _uses_moonshot(args.model_provider):
+            designer_spec = moonshot_design_initial_spec(
+                prompt=args.prompt,
+                catalog=catalog,
+                asset_catalog_path=_rel(prompt_case_path),
+                model_provider=args.model_provider,
+            )
+        else:
+            designer_spec = design_initial_spec(
+                prompt=args.prompt,
+                catalog=catalog,
+                asset_catalog_path=_rel(prompt_case_path),
+                model_provider=args.model_provider,
+            )
         designer_path = out_dir / "designer_initial_placement.json"
         write_json(designer_path, designer_spec)
 
@@ -133,19 +174,35 @@ def main() -> int:
         initial_validation_path = out_dir / "static_validation_initial.json"
         write_json(initial_validation_path, initial_validation)
 
-        critic_review = critic_review_from_validation(
-            placement=designer_spec,
-            validation_report=initial_validation,
-            model_provider=args.model_provider,
-        )
+        if _uses_moonshot(args.model_provider):
+            critic_review = moonshot_critic_review(
+                placement=designer_spec,
+                validation_report=initial_validation,
+                model_provider=args.model_provider,
+            )
+        else:
+            critic_review = critic_review_from_validation(
+                placement=designer_spec,
+                validation_report=initial_validation,
+                model_provider=args.model_provider,
+            )
         critic_path = out_dir / "critic_review.json"
         write_json(critic_path, critic_review)
 
-        final_spec = orchestrate_final_spec(
-            designer_spec=designer_spec,
-            critic_review=critic_review,
-            model_provider=args.model_provider,
-        )
+        if _uses_moonshot(args.model_provider):
+            final_spec = moonshot_orchestrate_final_spec(
+                designer_spec=designer_spec,
+                critic_review=critic_review,
+                validation_report=initial_validation,
+                catalog=catalog,
+                model_provider=args.model_provider,
+            )
+        else:
+            final_spec = orchestrate_final_spec(
+                designer_spec=designer_spec,
+                critic_review=critic_review,
+                model_provider=args.model_provider,
+            )
         final_path = out_dir / "final_placement.json"
         write_json(final_path, final_spec)
 
@@ -199,17 +256,96 @@ def main() -> int:
             )
             smoke_report_path = out_dir / "smoke_report_with_command.json"
             write_json(smoke_report_path, smoke_report)
-            visual_review_report = visual_review(smoke_dir, args.prompt, mode=args.visual_review_mode)
+            if args.visual_review_mode == "moonshot":
+                visual_review_report = observe_scene_with_moonshot(
+                    smoke_dir=smoke_dir,
+                    prompt=args.prompt,
+                    placement=final_spec,
+                    asset_grounding=grounding,
+                )
+            else:
+                visual_review_report = visual_review(smoke_dir, args.prompt, mode=args.visual_review_mode)
             if args.visual_review_report:
                 visual_review_report = read_json(Path(args.visual_review_report))
             visual_review_path = out_dir / "visual_review.json"
             write_json(visual_review_path, visual_review_report)
+            repair_artifacts: list[dict[str, Any]] = []
+
+            for repair_idx in range(max(args.visual_repair_attempts, 0)):
+                visual_status = str(visual_review_report.get("status", ""))
+                if visual_status == "pass" or not visual_status.startswith(("fail", "repair")):
+                    break
+                if not _uses_moonshot(args.model_provider) or args.visual_review_mode != "moonshot":
+                    break
+
+                repaired_spec = moonshot_repair_from_visual_review(
+                    final_spec=final_spec,
+                    visual_review=visual_review_report,
+                    catalog=catalog,
+                    model_provider=args.model_provider,
+                )
+                repair_name = f"visual_repair_attempt_{repair_idx + 1}"
+                repaired_path = out_dir / f"{repair_name}_placement.json"
+                write_json(repaired_path, repaired_spec)
+                repaired_validation = validate_placement_spec(repaired_spec, catalog, robotwin_root=args.robotwin_root)
+                repaired_validation_path = out_dir / f"{repair_name}_static_validation.json"
+                write_json(repaired_validation_path, repaired_validation)
+                repair_record: dict[str, Any] = {
+                    "attempt": repair_idx + 1,
+                    "placement": _rel(repaired_path),
+                    "static_validation": _rel(repaired_validation_path),
+                    "status": repaired_validation.get("status"),
+                }
+                if repaired_validation.get("status") != "pass":
+                    repair_artifacts.append(repair_record)
+                    continue
+
+                final_spec = repaired_spec
+                write_json(final_path, final_spec)
+                scene_report = generate_scene_module(placement_path=final_path, out_path=scene_module_path)
+                write_json(scene_report_path, scene_report)
+
+                repair_smoke_dir = out_dir / f"smoke_{repair_name}"
+                smoke_report = run_robotwin_smoke(
+                    robotwin_root=Path(args.robotwin_root).expanduser(),
+                    placement=final_path,
+                    out_dir=repair_smoke_dir,
+                    task_config=args.task_config,
+                    seed=args.seed,
+                    settle_steps=args.settle_steps,
+                    video_frames=args.video_frames,
+                    fps=args.fps,
+                    scene_module=scene_module_path,
+                    python_executable=args.python_executable,
+                )
+                repair_smoke_report_path = out_dir / f"{repair_name}_smoke_report_with_command.json"
+                write_json(repair_smoke_report_path, smoke_report)
+                visual_review_report = observe_scene_with_moonshot(
+                    smoke_dir=repair_smoke_dir,
+                    prompt=args.prompt,
+                    placement=final_spec,
+                    asset_grounding=grounding,
+                )
+                visual_review_path = out_dir / f"{repair_name}_visual_review.json"
+                write_json(visual_review_path, visual_review_report)
+                repair_record.update(
+                    {
+                        "status": "rerun_complete",
+                        "smoke_report": _rel(repair_smoke_dir / "smoke_report.json"),
+                        "smoke_report_with_command": _rel(repair_smoke_report_path),
+                        "visual_review": _rel(visual_review_path),
+                        "preview": get_smoke_artifacts(repair_smoke_dir),
+                    }
+                )
+                repair_artifacts.append(repair_record)
+
             summary["artifacts"].update(
                 {
                     "smoke_report": _rel(smoke_dir / "smoke_report.json"),
                     "smoke_report_with_command": _rel(smoke_report_path),
                     "visual_review": _rel(visual_review_path),
                     "preview": get_smoke_artifacts(smoke_dir),
+                    "visual_repair_attempts": repair_artifacts,
                 }
             )
             smoke_passed = smoke_report.get("status") == "pass" and smoke_report.get("returncode") == 0

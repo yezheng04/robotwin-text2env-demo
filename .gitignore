@@ -30,3 +30,6 @@ Thumbs.db
 
 # Local generated scene experiments are reproducible run outputs.
 generated/
+
+# Local-only API credentials. Never commit real keys.
+generate_scene/local_config.py
